@@ -26,27 +26,13 @@ class Package(object):
 	@property
 	def namespace(self):
 		return self.__name
-		
-class SourcePackage(Package):
-	def __init__(self, source_dir):	
-		self.__source_dir = source_dir
-		
-	def prepare(self):
-		Package.prepare(self)
-		
-	def __extract_source_info(self):
+
+class PackageParser(object):
+	def __init__(self):
 		pass
 		
-class BinPackage(Package):
-	def __init__(self, source_dir, bin_type):	
-		self.__source_dir = source_dir
-		self.__bin_type = bin_type
-		
-	def prepare(self):
-		Package.prepare(self)
-		
-	def __extract_source_info(self):
-		pass		
+	def parse(self):
+		pass
 		
 class PackageBuilder(object):
 	def __init__(self, args):
