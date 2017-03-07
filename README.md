@@ -1,2 +1,2 @@
 # gcspypi
-Private python packages repository backed by Google Cloud Storage
+Python packages private repository backed by Google Cloud Storage
