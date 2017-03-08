@@ -9,16 +9,18 @@ def main(args):
 	if args["search"]:
 		pkg_mgr.list(args["list"])
 	elif args["remove"]:
-		pkg = pb.PackageParser(args).parse()
-		pkg_mgr.remove(pkg)
+		pkgs = pb.PackageParser(args["remove"]).parse()
+		for pkg in pkgs: pkg_mgr.remove(pkg)
 	elif args["upload"]:
 		pkg = pb.PackageBuilder(args).build()
 		pkg_mgr.upload(pkg,args["overwrite"])
 	elif args["install"]:
-		pkg = pb.PackageParser(args).parse()
+		pkgs = pb.PackageParser(args["install"]).parse()
+		for pkg in pkgs: pkg_mgr.install(pkg)
 		pass
 	elif args["uninstall"]:
-		pkg = pb.PackageParser(args).parse()
+		pkg = pb.PackageParser(args["uninstall"]).parse()
+		for pkg in pkgs: pkg_mgr.uninstall(pkg)
 		pass
 			
 # class DistAction(argparse.Action):

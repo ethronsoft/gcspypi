@@ -42,3 +42,7 @@ class PackageManager(object):
 	def remove(self, pkg):
 		print "removing"
 		pass
+		
+	def install(self, pkg):
+		print "installing"
+		pass
