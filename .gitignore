@@ -87,3 +87,10 @@ ENV/
 
 # Rope project settings
 .ropeproject
+
+# CMake
+CMakeLists.txt
+cmake*
+
+# Intellij
+.idea
