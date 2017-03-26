@@ -12,6 +12,10 @@ class Package(object):
         self.__version = self.__checked_version(version) if version else ""
         self.__requirements = requirements
 
+    @staticmethod
+    def from_text(text):
+        return Package("some")
+
     def __checked_version(self, v):
         if (len(v.split(".")) != 3): raise Exception("Version must be provided in major.minor.patch format")
         return v
@@ -37,14 +41,6 @@ class Package(object):
     @property
     def version(self):
         return self.__name
-
-
-class PackageParser(object):
-    def __init__(self, syntax):
-        pass
-
-    def parse(self):
-        pass
 
 
 class PackageBuilder(object):
