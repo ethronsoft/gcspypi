@@ -1,6 +1,6 @@
 import unittest
 import sys
-sys.path.append("../")
+sys.path.append("../gcspypi")
 from gcspypi.pb import Package
 from gcspypi.utils import *
 

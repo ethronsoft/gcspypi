@@ -1,3 +1,4 @@
+import tarfile
 import zipfile
 import shutil
 import os
@@ -7,10 +8,12 @@ import tempfile
 
 
 class Package(object):
-    def __init__(self, name, version="", requirements=[]):
-        self.__name = name
+    def __init__(self, name, version="", requirements=set([])):
+        self.__name = name.replace("_", "-")
         self.__version = self.__checked_version(version) if version else ""
-        self.__requirements = requirements
+        self.__requirements = set([])
+        for r in requirements:
+            self.__requirements.add(r.replace("_","-"))
 
     @staticmethod
     def from_text(text):
@@ -48,36 +51,42 @@ class Package(object):
 
 class PackageBuilder(object):
     def __init__(self, raw_package):
-        if ".zip" in raw_package or ".tar" in raw_package:
-            self.__info = self.__extract_source(raw_package)
-        elif ".egg" in raw_package:
-            self.__info = self.__extract_egg(raw_package)
-        elif ".whl" in raw_package:
-            self.__info = self.__extract_wheel(raw_package)
-        else:
-            raise Exception("Unrecognized file extension. expected {.zip|.tar|.tar.gz|.egg|.whl}")
-
-    def __seek_and_apply(self, raw_package, target, command):
         try:
             cwd = os.getcwd()
             dir = tempfile.mkdtemp()
             os.chdir(dir)
-            with zipfile.ZipFile(raw_package, "r") as f:
-                f.extractall(".")
-                for r, dir, f in os.walk("."):
-                    if f == target:
-                        with open(os.path.join(r, file), "r") as target_file:
-                            command(target_file)
-                        break
+            if ".zip" in raw_package:
+                with zipfile.ZipFile(raw_package, "r") as f:
+                    self.__info = self.__extract_source(f)
+            elif ".tar" in raw_package:
+                with tarfile.open(raw_package, "r") as f:
+                    self.__info = self.__extract_source(f)
+            elif ".egg" in raw_package:
+                with zipfile.ZipFile(raw_package, "r") as f:
+                    self.__info = self.__extract_egg(f)
+            elif ".whl" in raw_package:
+                with zipfile.ZipFile(raw_package, "r") as f:
+                    self.__info = self.__extract_wheel(f)
+            else:
+                raise Exception("Unrecognized file extension. expected {.zip|.tar*|.egg|.whl}")
         finally:
-            shutil.rmtree(dir)
             os.chdir(cwd)
+            shutil.rmtree(dir)
 
-    def __extract_egg(self, raw_package):
+    def __seek_and_apply(self, zip, target, command):
+        zip.extractall(".")
+        for r, dir, f in os.walk("."):
+            for x in f:
+                if target in x:
+                    with open(os.path.join(r, x), "r") as target_file:
+                        command(target_file)
+                    return
+
+    def __extract_egg(self, zip):
         # egg needs to get data from PKG-INFO, just like source...
-        return self.__extract_source(raw_package)
+        return self.__extract_source(zip)
 
-    def __extract_source(self, raw_package):
+    def __extract_source(self, zip):
         class InfoCmd(object):
             def __init__(self):
                 self.metadata = {}
@@ -86,18 +95,19 @@ class PackageBuilder(object):
                 map = {}
                 for line in target.readlines():
                     k, v = line.split(":")
-                    map[k] = v
-                self.metadata["name"] = map["name"]
-                self.metadata["version"] = map["version"]
+                    map[k.upper().strip()] = v.strip()
+                self.metadata["name"] = map["name".upper()]
+                self.metadata["version"] = map["version".upper()]
 
         cmd = InfoCmd()
-        self.__seek_and_apply(raw_package, "PKG-INFO", cmd)
+        self.__seek_and_apply(zip, "PKG-INFO", cmd)
         if not cmd.metadata:
-            raise Exception("Could not find PKG-INFO in: " + raw_package)
-        requirements = self.__read_requirements(raw_package)
-        return {"name": cmd.metadata.name, "version": cmd.metadata.version, "requirements": requirements}
+            raise Exception("Could not find PKG-INFO")
+        return {"name": cmd.metadata["name"],
+                "version": cmd.metadata["version"],
+                "requirements": self.__read_requirements(zip)}
 
-    def __extract_wheel(self, raw_package):
+    def __extract_wheel(self, zip):
         class InfoCmd(object):
             def __init__(self):
                 self.metadata = {}
@@ -106,25 +116,27 @@ class PackageBuilder(object):
                 map = json.loads(target.read())
                 self.metadata["name"] = map["name"]
                 self.metadata["version"] = map["version"]
+                self.metadata["requirements"] = set([])
+                for reqs in map["run_requires"]:
+                    self.metadata["requirements"].update(reqs["requires"])
 
         cmd = InfoCmd()
-        self.__seek_and_apply(raw_package, "metadata.json", cmd)
+        self.__seek_and_apply(zip, "metadata.json", cmd)
         if not cmd.metadata:
-            raise Exception("Could not find PKG-INFO in: " + raw_package)
-        requirements = self.__read_requirements(raw_package)
-        return {"name": cmd.metadata.name, "version": cmd.metadata.version, "requirements": requirements}
+            raise Exception("Could not find PKG-INFO")
+        return cmd.metadata
 
-    def __read_requirements(self, raw_package):
+    def __read_requirements(self, zip):
         class RequiresCmd(object):
             def __init__(self):
                 self.requires = []
 
             def __call__(self, target):
-                self.requires = target.readlines()
+                self.requires = [x for x in target.read().splitlines()]
 
         cmd = RequiresCmd()
-        self.__seek_and_apply(raw_package, "requires", cmd)
+        self.__seek_and_apply(zip, "requires", cmd)
         return cmd.requires
 
     def build(self):
-        return Package(self.__info.name, self.__info.version, set(self.__info.requirements))
+        return Package(self.__info["name"], self.__info["version"], set(self.__info["requirements"]))

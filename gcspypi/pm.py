@@ -111,7 +111,7 @@ class PackageManager(object):
                             #Let's scan the new internal requirements as they may
                             #themselves point to more internal and public requirements.
                             for inreq in new_internal_reqs:
-                                req_pkg = PackageParser(inreq).parse()
+                                req_pkg = Package.from_text(inreq)
                                 req_pkg_install = os.path.join(tmp,req_pkg.full_name.replace(":", "_"))
                                 self.download(req_pkg,req_pkg_install)
                                 scan_targets.add(req_pkg_install)
@@ -153,7 +153,7 @@ class PackageManager(object):
         for r in requirements:
             #we have saved the temp packages using Package::full_name().replace(":,"_")
             #so let's get back our package to reference that file
-            pkg = PackageParser(r).parse()
+            pkg = Package.from_text(r)
             self.__pip_install(os.path.join(install_dir,pkg.full_name.replace(":", "_")), ["--no-dependencies"])
 
 
