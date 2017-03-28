@@ -7,7 +7,7 @@ import tempfile
 
 
 class Package(object):
-    def __init__(self, name, version, requirements):
+    def __init__(self, name, version="", requirements=[]):
         self.__name = name
         self.__version = self.__checked_version(version) if version else ""
         self.__requirements = requirements
@@ -20,8 +20,11 @@ class Package(object):
         if (len(v.split(".")) != 3): raise Exception("Version must be provided in major.minor.patch format")
         return v
 
-    def __del__(self):
-        print "Package destructor"
+    def __eq__(self, o):
+        return isinstance(o, Package) and self.name == o.name and self.version == o.version
+
+    def __hash__(self):
+        return hash(self.full_name)
 
     def prepare(self):
         return "some"
@@ -40,7 +43,7 @@ class Package(object):
 
     @property
     def version(self):
-        return self.__name
+        return self.__version
 
 
 class PackageBuilder(object):

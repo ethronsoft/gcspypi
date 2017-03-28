@@ -27,6 +27,7 @@ def pkg_comp_name(i, x):
 def cmp_bisect(list, key, cmp=cmp):
     lo = 0
     hi = len(list) - 1
+    mid = 0
     while (lo <= hi):
         mid = lo + (hi - lo) / 2
         i = cmp(list[mid], key)
@@ -35,12 +36,17 @@ def cmp_bisect(list, key, cmp=cmp):
         elif i > 0:
             hi = mid - 1
         else:
-            return mid
-    return mid
+            break
+    if cmp(key,list[mid]) <= 0:
+        return mid
+    else:
+        return mid+1
 
 
 def floor(list, key, cmp=cmp):
     indx = cmp_bisect(list, key, cmp)
+    if indx >= len(list):
+        return list[-1]
     c = cmp(list[indx], key)
     if c <= 0:
         return list[indx]
@@ -50,6 +56,8 @@ def floor(list, key, cmp=cmp):
 
 def ceiling(list, key, cmp=cmp):
     indx = cmp_bisect(list, key, cmp)
+    if indx >= len(list):
+        return None
     c = cmp(list[indx], key)
     if c < 0:
         return list[indx + 1] if indx < len(list) - 1 else None
@@ -59,6 +67,8 @@ def ceiling(list, key, cmp=cmp):
 
 def lower(list, key, cmp=cmp):
     indx = cmp_bisect(list, key, cmp)
+    if indx >= len(list):
+        return list[-1]
     c = cmp(list[indx], key)
     if c < 0:
         return list[indx]
@@ -68,6 +78,8 @@ def lower(list, key, cmp=cmp):
 
 def higher(list, key, cmp=cmp):
     indx = cmp_bisect(list, key, cmp)
+    if indx >= len(list):
+        return None
     c = cmp(list[indx], key)
     if c <= 0:
         return list[indx + 1] if indx < len(list) - 1 else None
@@ -77,10 +89,11 @@ def higher(list, key, cmp=cmp):
 
 def equal(list, key, cmp=cmp):
     indx = cmp_bisect(list, key, cmp)
+    if indx >= len(list): return None
     return list[indx] if cmp(list[indx], key) == 0 else None
 
 
-def pkg_range_query(list, pkg_name, op1, v1, op2, v2):
+def pkg_range_query(list, pkg_name, op1="", v1="", op2="", v2=""):
     def complete_version(v):
         tokens = v.split(".")
         for i in range(3 - len(tokens)):
@@ -89,7 +102,7 @@ def pkg_range_query(list, pkg_name, op1, v1, op2, v2):
 
     #empty version means last version
 
-    if op1 == "==":
+    if op1 == "==" or op1 == "":
         if v1:
             x = equal(list, pb.Package(pkg_name, complete_version(v1)), pkg_comp_name_version)
         else:
