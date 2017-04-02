@@ -1,9 +1,8 @@
 import os
-import unittest
 import sys
-sys.path.append("../gcspypi")
-from gcspypi.pb import *
-
+import unittest
+sys.path.append("../ethronsoft/gcspypi")
+from ethronsoft.gcspypi.pb import *
 
 class PackageBuilderTest(unittest.TestCase):
 
@@ -13,6 +12,7 @@ class PackageBuilderTest(unittest.TestCase):
         self.assertEqual(pkg.name, "test-package")
         self.assertEqual(pkg.version, "1.0.0")
         self.assertEqual(pkg.requirements, set(["test-dep1", "test-dep2"]))
+        self.assertEqual(pkg.type, "SOURCE")
 
     def test_wheel(self):
         dir = os.path.dirname(os.path.abspath(__file__))
@@ -20,6 +20,7 @@ class PackageBuilderTest(unittest.TestCase):
         self.assertEqual(pkg.name, "test-package")
         self.assertEqual(pkg.version, "1.0.0")
         self.assertEqual(pkg.requirements, set(["test-dep1", "test-dep2"]))
+        self.assertEqual(pkg.type, "WHEEL")
 
     def test_egg(self):
         dir = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +28,7 @@ class PackageBuilderTest(unittest.TestCase):
         self.assertEqual(pkg.name, "test-package")
         self.assertEqual(pkg.version, "1.0.0")
         self.assertEqual(pkg.requirements, set(["test-dep1", "test-dep2"]))
+        self.assertEqual(pkg.type, "EGG")
 
 
 if __name__ == "__main__":

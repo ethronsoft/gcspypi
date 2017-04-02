@@ -1,15 +1,17 @@
-from google.cloud import storage
-from pb import *
-import pip
+import datetime
 import re
+import pip
+from google.cloud import storage
+
+from pb import *
 from utils import *
 
+
 class PackageManager(object):
-    def __init__(self, repo_name, type, overwrite=False, mirroring=True, install_deps=True):
+    def __init__(self, repo_name, overwrite=False, mirroring=True, install_deps=True):
         self.__bucket_name = repo_name
         self.__overwrite = overwrite
         self.__mirroring = mirroring
-        self.__preferred_type = type
         self.__install_deps = install_deps
         self.__prog = re.compile("((?:\w|-)*)(==|=?<|=?>)?((?:\d*\.?){0,3})?,?(==|=?<|=?>)?((?:\d*\.?){0,3})?")
         self.__repo_cache = []
@@ -76,19 +78,18 @@ class PackageManager(object):
             except Exception:
                 return False
 
-    def install(self, syntax):
+    def install(self, syntax, preferred_type):
         pkg = self.search(syntax)
         is_internal = pkg is not None
         if not is_internal:
             if self.__mirroring:
-                print "mirrored pip install {}".format(pkg.full_name)
-                self.__pip_install(pkg.full_name)
+                self.__pip_install(syntax)
             else:
                 print "{0} not in {1} repository".format(pkg.full_nam, self.__bucket_name)
         else:
             try:
                 tmp = tempfile.mkdtemp()
-                root_pkg = self.download(pkg, tmp, self.__preferred_type)
+                root_pkg = self.download(pkg, tmp, preferred_type)
                 if not root_pkg:
                     return
                 if self.__install_deps:
@@ -110,8 +111,8 @@ class PackageManager(object):
                         # Let's scan the new internal requirements as they may
                         # themselves point to more internal and public requirements.
                         for inreq in new_internal_reqs:
-                            req_pkg = Package.search(inreq)
-                            req_pkg_installed = self.download(req_pkg, tmp, self.__preferred_type)
+                            req_pkg = self.search(inreq)
+                            req_pkg_installed = self.download(req_pkg, tmp, preferred_type)
                             if req_pkg_installed:
                                 scan_targets.add(req_pkg_installed)
 
@@ -131,11 +132,45 @@ class PackageManager(object):
     def uninstall(self, pkg):
         pip.main(["uninstall", pkg.full_name.replace(":", "==")])
 
-    def clone(self, dest):
-        pass
+    def clone(self, root):
+        cwd = os.getcwd()
+        try:
+            tmp = os.path.join(root,"__tmp")
+            os.makedirs(tmp)
+            for path in self.__repo_cache:
+                dest = os.path.join(tmp, path)
+                os.makedirs(os.path.split(dest)[0])
+                blob = self.__get_bucket().blob(path)
+                blob.download_to_filename(dest)
+            millis = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() * 1000)
+            zip_name = os.path.join(root, "{}_{}.zip".format(self.__bucket_name, millis))
+            with zipfile.ZipFile(zip_name, "w") as z:
+                os.chdir(tmp)
+                for r, ds, fs in os.walk("."):
+                    for f in fs:
+                        z.write(os.path.join(r, f))
+            print "Successfully cloned repository {} to {}".format(self.__bucket_name, zip_name)
+        finally:
+            os.chdir(cwd)
+            shutil.rmtree(tmp)
+
 
     def restore(self, zip_repo):
-        pass
+        if self.__repo_cache:
+            x = raw_input("Repository {} is not empty.\nDo you want to attempt to push into an existing repository? [y|n]: "
+                      .format(self.__bucket_name))
+            if x.strip() == "y":
+                self.__overwrite = True
+            else:
+                print "Aborting operation"
+                return
+        tmp = tempfile.mkdtemp()
+        with zipfile.ZipFile(zip_repo, "r") as z:
+            z.extractall(tmp)
+        for r, ds, fs in os.walk(tmp):
+            for f in fs:
+                pkg = PackageBuilder(os.path.join(r, f)).build()
+                self.upload(pkg, os.path.join(r, f))
 
     def refresh_cache(self):
         self.__repo_cache = self.list_items()

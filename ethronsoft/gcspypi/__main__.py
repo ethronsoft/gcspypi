@@ -1,7 +1,8 @@
 import argparse
 import os
-import pm
+
 import pb
+import pm
 
 
 def print_syntax():
@@ -34,7 +35,7 @@ Note: a 0 may be omitted in specifying the version if followed by zeros
 """
 
 
-def main(args):
+def process(args):
     if args["command"] == "search":
         pkg_mgr = pm.PackageManager(args["repository"])
         for syntax in args["syntax"]:
@@ -63,10 +64,10 @@ def main(args):
         pkg = pb.PackageBuilder(os.path.abspath(args["file"])).build()
         pkg_mgr.upload(pkg, os.path.abspath(args["file"]))
     elif args["command"] == "install":
-        pkg_mgr = pm.PackageManager(args["repository"], type=args["type"],
+        pkg_mgr = pm.PackageManager(args["repository"],
                                     mirroring=args["mirror"], install_deps=not args["no_dependencies"])
         for syntax in args["packages"]:
-            pkg_mgr.install(syntax)
+            pkg_mgr.install(syntax, args["type"])
     elif args["command"] == "uninstall":
         pkg_mgr = pm.PackageManager(args["repository"])
         for syntax in args["packages"]:
@@ -75,16 +76,16 @@ def main(args):
         print_syntax()
     elif args["command"] == "pull":
         pkg_mgr = pm.PackageManager(args["repository"])
-        pkg_mgr.clone(args["pull"])
+        pkg_mgr.clone(args["destination"])
     elif args["command"] == "push":
         pkg_mgr = pm.PackageManager(args["repository"])
-        pkg_mgr.restore(args["push"])
+        pkg_mgr.restore(args["zipped_repo"])
     else:
         # help find missing elif clauses if new commands are added
         raise Exception("Unrecognized command")
 
 
-if __name__ == "__main__":
+def main():
     parser = argparse.ArgumentParser(description="CLI to [G]oogle [C]loud [S]torage [PyPI]")
     parser.add_argument("--repository", metavar="R", type=str, nargs="?",
                         help="Specifies GCS bucket name hosting the packages")
@@ -129,14 +130,17 @@ if __name__ == "__main__":
                                                         this command cannot be undone if not by reinstalling
                                                         the packages. View syntax using command syntax""")
     remove_parser.add_argument("packages", metavar="P", nargs="+", type=str,
-                                  help="Package(s) to remove. View syntax using command syntax")
+                               help="Package(s) to remove. View syntax using command syntax")
     # backup
     pull_parser = subparsers.add_parser("pull", description="Pulls the repository at the provided location")
     pull_parser.add_argument("destination", default=".", help="Directory to pull into")
     push_parser = subparsers.add_parser("push", description="Pushes the local copy of the repository to the repository")
-    push_parser.add_argument("destination", help="Repository to push into")
+    push_parser.add_argument("zipped_repo", help="Name o zipped repository to push")
     # syntax-example
     syntax_parser = subparsers.add_parser("syntax", description="Describes syntax used in search and remove commands")
 
     args = vars(parser.parse_args())
-    main(args)
+    process(args)
+
+if __name__ == "__main__":
+    main()
