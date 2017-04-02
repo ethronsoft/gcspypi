@@ -5,36 +5,44 @@ import os
 import glob
 import json
 import tempfile
+import utils
 
 
 class Package(object):
-    def __init__(self, name, version="", requirements=set([])):
+    def __init__(self, name, version="", requirements=set([]), type=""):
         self.__name = name.replace("_", "-")
-        self.__version = self.__checked_version(version) if version else ""
+        self.__version = utils.complete_version(version) if version else ""
         self.__requirements = set([])
+        self.__type = type
         for r in requirements:
             self.__requirements.add(r.replace("_","-"))
 
     @staticmethod
     def from_text(text):
-        return Package("some")
+        if ">" in text or "<" in text:
+            raise Exception("Cannot create a package with non deterministic version")
+        if "==" in text:
+            name, version = text.split("==")
+            return Package(name.strip(), version.strip())
+        else:
+            return Package(text)
 
-    def __checked_version(self, v):
-        if (len(v.split(".")) != 3): raise Exception("Version must be provided in major.minor.patch format")
-        return v
+    def __str__(self):
+        return self.full_name
 
     def __eq__(self, o):
-        return isinstance(o, Package) and self.name == o.name and self.version == o.version
+        return isinstance(o, Package) and self.name == o.name and self.version == o.version and self.type == o.type
 
     def __hash__(self):
         return hash(self.full_name)
 
-    def prepare(self):
-        return "some"
-
     @property
     def name(self):
         return self.__name
+
+    @property
+    def type(self):
+        return self.__type
 
     @property
     def full_name(self):
@@ -55,20 +63,40 @@ class PackageBuilder(object):
             cwd = os.getcwd()
             dir = tempfile.mkdtemp()
             os.chdir(dir)
-            if ".zip" in raw_package:
-                with zipfile.ZipFile(raw_package, "r") as f:
-                    self.__info = self.__extract_source(f)
-            elif ".tar" in raw_package:
-                with tarfile.open(raw_package, "r") as f:
-                    self.__info = self.__extract_source(f)
-            elif ".egg" in raw_package:
+            type = utils.get_package_type(raw_package)
+            if type == "SOURCE":
+                if ".zip" in raw_package:
+                    with zipfile.ZipFile(raw_package, "r") as f:
+                        self.__info = self.__extract_source(f)
+                elif ".tar" in raw_package:
+                    with tarfile.open(raw_package, "r") as f:
+                        self.__info = self.__extract_source(f)
+            elif type == "EGG":
                 with zipfile.ZipFile(raw_package, "r") as f:
                     self.__info = self.__extract_egg(f)
-            elif ".whl" in raw_package:
+            elif type == "WHEEL":
                 with zipfile.ZipFile(raw_package, "r") as f:
                     self.__info = self.__extract_wheel(f)
-            else:
-                raise Exception("Unrecognized file extension. expected {.zip|.tar*|.egg|.whl}")
+
+            self.__info["type"] = type
+            # if ".zip" in raw_package:
+            #     with zipfile.ZipFile(raw_package, "r") as f:
+            #         self.__info = self.__extract_source(f)
+            #         self.__info["type"] = "SOURCE"
+            # elif ".tar" in raw_package:
+            #     with tarfile.open(raw_package, "r") as f:
+            #         self.__info = self.__extract_source(f)
+            #         self.__info["type"] = "SOURCE"
+            # elif ".egg" in raw_package:
+            #     with zipfile.ZipFile(raw_package, "r") as f:
+            #         self.__info = self.__extract_egg(f)
+            #         self.__info["type"] = "EGG"
+            # elif ".whl" in raw_package:
+            #     with zipfile.ZipFile(raw_package, "r") as f:
+            #         self.__info = self.__extract_wheel(f)
+            #         self.__info["type"] = "WHEEL"
+            # else:
+            #     raise Exception("Unrecognized file extension. expected {.zip|.tar*|.egg|.whl}")
         finally:
             os.chdir(cwd)
             shutil.rmtree(dir)
@@ -139,4 +167,7 @@ class PackageBuilder(object):
         return cmd.requires
 
     def build(self):
-        return Package(self.__info["name"], self.__info["version"], set(self.__info["requirements"]))
+        return Package(self.__info["name"],
+                       self.__info["version"],
+                       set(self.__info["requirements"]),
+                       self.__info["type"])

@@ -5,54 +5,53 @@ import re
 from utils import *
 
 class PackageManager(object):
-    def __init__(self, repo_name, overwrite=False, mirroring=True, install_deps=True):
+    def __init__(self, repo_name, type, overwrite=False, mirroring=True, install_deps=True):
         self.__bucket_name = repo_name
         self.__overwrite = overwrite
         self.__mirroring = mirroring
+        self.__preferred_type = type
         self.__install_deps = install_deps
-        self.__prog = re.compile("(\w*)(==|=?<|=?>)?((?:\d*\.?){0,3})?,?(==|=?<|=?>)?((?:\d*\.?){0,3})?")
+        self.__prog = re.compile("((?:\w|-)*)(==|=?<|=?>)?((?:\d*\.?){0,3})?,?(==|=?<|=?>)?((?:\d*\.?){0,3})?")
         self.__repo_cache = []
+        self.refresh_cache()
 
     def upload(self, pkg, filename):
         if not pkg.version:
             raise Exception("Version must be specified when uploading a package")
         current = self.search(pkg.name + "==" + pkg.version)
-        if current and not self.__overwrite:
+        if current and current.type == pkg.type and not self.__overwrite:
             raise Exception("upload would result in overwrite but overwrite mode is not enabled")
         blob = self.__get_bucket().blob(pkg.name + "/" + pkg.version + "/" + os.path.split(filename)[1])
         blob.upload_from_filename(filename)
 
-    def download(self, pkg, dest):
+    def download(self, pkg, dest, preferred_type):
         if not pkg.version:
-            last = self.search(pkg.name)
-            lastv = last.version if last else "0.0.0"
-            newv  = lastv.version[:-2] + str(int(lastv.version[-1]))
-            repo_object_name = pkg.name + "/" + newv
-        else:
-            repo_object_name = pkg.name + "/" + pkg.version
-        #get the first available file under this name and version
-        l = self.__get_bucket.list_blobs(prefix=pkg.name + "/" + pkg.version)
+            pkg = self.search(pkg.name)
+            if not pkg: return ""
+        target = pkg.full_name.replace(":", "/")
+        l = [item for item in self.__repo_cache if target in item]
         if l:
-            blob = self.__get_bucket.blob(l[0])
-            output = os.path.join(dest,os.path.split(l.name[0])[1])
-            blob.download_to_file(output)
+            to_install = l[0]
+            for p in l:
+                if utils.get_package_type(p) == preferred_type:
+                    to_install = p
+                    break
+            #download first
+            blob = self.__get_bucket().blob(to_install)
+            output = os.path.join(dest, os.path.split(to_install)[1])
+            blob.download_to_filename(output)
             return output
         else:
             return ""
 
-    def list(self, prefix=""):
-        print "listing"
-        res = []
-        l = self.__get_bucket.list_blobs(prefix=prefix)
-        for x in l:
-            tokens = x.name.split("/")
-            res = Package(tokens[-3], tokens[-2])
-        # let's return ordered, for searching and visual reasons
-        return sorted(res, cmp=pkg_comp_name_version)
+    def list_items(self, prefix="", from_cache=False):
+        if from_cache:
+            return [item for item in self.__repo_cache if prefix in item]
+        else:
+            return sorted(map(lambda b: b.name, self.__get_bucket().list_blobs(prefix=prefix)))
 
     def search(self, syntax):
-        if not self.__repo_cache:
-            self.__repo_cache = list()
+        packages = items_to_package(self.__repo_cache)
         #search the repo for packages matching the syntax
         match = self.__prog.match(syntax)
         count = len(match.groups())
@@ -65,84 +64,93 @@ class PackageManager(object):
             raise Exception("missing package name")
         if (not firstop and firstv) or (not secondop and secondv):
             raise Exception("cannot specify a version number without an operator")
-        return pkg_range_query(self.__repo_cache, name, firstop, firstv, secondop, secondv)
+        return pkg_range_query(packages, name.replace("_", "-"), firstop, firstv, secondop, secondv)
 
     def remove(self, pkg):
         bucket = self.__get_bucket()
-        l = bucket.list_blobs(prefix=pkg.name + "/" + pkg.version)
+        l = self.list_items(prefix=pkg.name + "/" + pkg.version, from_cache=True)
         for x in l:
-            bucket.blob(x.name).delete()
+            try:
+                bucket.blob(x).delete()
+                return True
+            except Exception:
+                return False
 
     def install(self, syntax):
-        print "installing"
-        if not self.__repo_cache:
-            self.__repo_cache = list()
-        for token in syntax.split():
-            pkg = self.search(token)
-            is_internal = pkg is not None
-            if not is_internal:
-                if self.__mirroring:
-                    print "mirrored pip install {}".format(pkg.full_name)
-                    self.__pip_install(pkg.full_name)
-                else:
-                    print "{0} not in {1} repository".format(pkg.full_nam,self.__bucket_name)
+        pkg = self.search(syntax)
+        is_internal = pkg is not None
+        if not is_internal:
+            if self.__mirroring:
+                print "mirrored pip install {}".format(pkg.full_name)
+                self.__pip_install(pkg.full_name)
             else:
-                try:
-                    tmp = tempfile.mkdtemp()
-                    root_pkg_install = os.path.join(tmp,pkg.full_name.replace(":", "_"))
-                    self.download(pkg, root_pkg_install)
+                print "{0} not in {1} repository".format(pkg.full_nam, self.__bucket_name)
+        else:
+            try:
+                tmp = tempfile.mkdtemp()
+                root_pkg = self.download(pkg, tmp, self.__preferred_type)
+                if not root_pkg:
+                    return
+                if self.__install_deps:
+                    # let's separate all the internal requirements from the public ones.
+                    # let's install the internal requirements ourselves and delegate the public ones to pip install.
+                    # Then, once the requirements are installed, let's call pip install on the package itself
 
-                    if self.__install_deps:
-                        #let's separate all the internal requirements from the public ones.
-                        #let's install the internal requirements ourselves and delegate the public ones to pip install.
-                        #Then, once the requirements are installed, let's call pip install on the package itself
+                    # packages to scan for requirements
+                    scan_targets = set([root_pkg])
+                    # names of internal requirements
+                    internal_reqs = set([])
+                    # names of public requirements
+                    public_reqs = set([])
+                    while scan_targets:
+                        scanned_pkg = PackageBuilder(scan_targets.pop()).build()
+                        new_internal_reqs = self.__find_internal_requirements(scanned_pkg)
+                        internal_reqs.union(new_internal_reqs)
+                        public_reqs = public_reqs.union(scanned_pkg.requirements - new_internal_reqs)
+                        # Let's scan the new internal requirements as they may
+                        # themselves point to more internal and public requirements.
+                        for inreq in new_internal_reqs:
+                            req_pkg = Package.search(inreq)
+                            req_pkg_installed = self.download(req_pkg, tmp, self.__preferred_type)
+                            if req_pkg_installed:
+                                scan_targets.add(req_pkg_installed)
 
-                        #packages to scan for requirements
-                        scan_targets = set([root_pkg_install])
-                        #names of internal requirements
-                        internal_reqs = set([])
-                        #names of public requirements
-                        public_reqs = set([])
-                        while scan_targets:
-                            scanned_pkg = PackageBuilder(scan_targets.pop()).build()
-                            new_internal_reqs = self.__find_internal_requirements(scanned_pkg)
-                            internal_reqs.union(new_internal_reqs)
-                            public_reqs.union(scanned_pkg.requirements - new_internal_reqs)
-                            #Let's scan the new internal requirements as they may
-                            #themselves point to more internal and public requirements.
-                            for inreq in new_internal_reqs:
-                                req_pkg = Package.from_text(inreq)
-                                req_pkg_install = os.path.join(tmp,req_pkg.full_name.replace(":", "_"))
-                                self.download(req_pkg,req_pkg_install)
-                                scan_targets.add(req_pkg_install)
+                    #let's proceed installing all public requirements first
+                    self.__public_install(public_reqs)
+                    #let's continue with our private requirements
+                    self.__internal_install(internal_reqs, tmp)
+                    #then let's use pip install to install the orignal package.
+                    #because we have already taken care of dependendencies, we can
+                    #use pip --no-dependencies flag
+                    self.__pip_install(root_pkg, ["--no-dependencies"])
+                else:
+                    self.__pip_install(root_pkg, ["--no-dependencies"])
+            finally:
+                shutil.rmtree(tmp, ignore_errors=True)
 
-                        #let's proceed installing all public requirements first
-                        self.__public_install(public_reqs)
-                        #let's continue with our private requirements
-                        self.__internal_install(internal_reqs)
-                        #then let's use pip install to install the orignal package.
-                        #because we have already taken care of dependendencies, we can
-                        #use pip --no-dependencies flag
-                        self.__pip_install(root_pkg_install, ["--no-dependencies"])
-                    else:
-                        self.__pip_install(root_pkg_install, ["--no-dependencies"])
-                finally:
-                    shutil.rmtree(tmp, ignore_errors=True)
-
-
-    def uninistall(self, pkg):
+    def uninstall(self, pkg):
         pip.main(["uninstall", pkg.full_name.replace(":", "==")])
 
-    def clear_cache(self):
-        self.__repo_cache = []
+    def clone(self, dest):
+        pass
+
+    def restore(self, zip_repo):
+        pass
+
+    def refresh_cache(self):
+        self.__repo_cache = self.list_items()
 
     def __get_bucket(self):
         ##return a client using the current default login
         ##set with: gcloud auth application-default login
         return storage.Client().bucket(self.__bucket_name)
 
-    def __find_internal_requirements(self,pkg):
-        return set([])
+    def __find_internal_requirements(self, pkg):
+        res =  set([])
+        for req in pkg.requirements:
+            if self.search(req):
+                res.add(req)
+        return res
 
     def __internal_install(self, requirements, install_dir):
         #install the private package using pip.
@@ -155,7 +163,6 @@ class PackageManager(object):
             #so let's get back our package to reference that file
             pkg = Package.from_text(r)
             self.__pip_install(os.path.join(install_dir,pkg.full_name.replace(":", "_")), ["--no-dependencies"])
-
 
     def __public_install(self, requirements):
         for r in requirements:

@@ -37,13 +37,14 @@ def cmp_bisect(list, key, cmp=cmp):
             hi = mid - 1
         else:
             break
-    if cmp(key,list[mid]) <= 0:
+    if list and cmp(key, list[mid]) <= 0:
         return mid
     else:
-        return mid+1
+        return mid + 1
 
 
 def floor(list, key, cmp=cmp):
+    if not list: return None
     indx = cmp_bisect(list, key, cmp)
     if indx >= len(list):
         return list[-1]
@@ -55,6 +56,7 @@ def floor(list, key, cmp=cmp):
 
 
 def ceiling(list, key, cmp=cmp):
+    if not list: return None
     indx = cmp_bisect(list, key, cmp)
     if indx >= len(list):
         return None
@@ -66,6 +68,7 @@ def ceiling(list, key, cmp=cmp):
 
 
 def lower(list, key, cmp=cmp):
+    if not list: return None
     indx = cmp_bisect(list, key, cmp)
     if indx >= len(list):
         return list[-1]
@@ -77,6 +80,7 @@ def lower(list, key, cmp=cmp):
 
 
 def higher(list, key, cmp=cmp):
+    if not list: return None
     indx = cmp_bisect(list, key, cmp)
     if indx >= len(list):
         return None
@@ -88,30 +92,31 @@ def higher(list, key, cmp=cmp):
 
 
 def equal(list, key, cmp=cmp):
+    if not list: return None
     indx = cmp_bisect(list, key, cmp)
     if indx >= len(list): return None
     return list[indx] if cmp(list[indx], key) == 0 else None
 
 
+def complete_version(v):
+    tokens = v.split(".")
+    for i in range(3 - len(tokens)):
+        tokens.append("0")
+    return ".".join(tokens)
+
+
 def pkg_range_query(list, pkg_name, op1="", v1="", op2="", v2=""):
-    def complete_version(v):
-        tokens = v.split(".")
-        for i in range(3 - len(tokens)):
-            tokens.push("0")
-        return ".".join(tokens)
-
-    #empty version means last version
-
-    if op1 == "==" or op1 == "":
+    # empty version means last version
+    if op1 == "==" or not op1:
         if v1:
             x = equal(list, pb.Package(pkg_name, complete_version(v1)), pkg_comp_name_version)
         else:
-            x = lower(list, pb.Package(pkg_name+'x01', ""), pkg_comp_name)
+            x = lower(list, pb.Package(pkg_name + 'x01', ""), pkg_comp_name)
     elif op1 == "<":
         if v1:
             x = lower(list, pb.Package(pkg_name, complete_version(v1)), pkg_comp_name_version)
         else:
-            x = lower(list, pb.Package(pkg_name+'x01', ""), pkg_comp_name)
+            x = lower(list, pb.Package(pkg_name + 'x01', ""), pkg_comp_name)
             x = lower(list, x, pkg_comp_name)
     elif op1 == ">":
         if v1:
@@ -122,12 +127,12 @@ def pkg_range_query(list, pkg_name, op1="", v1="", op2="", v2=""):
         if v1:
             x = floor(list, pb.Package(pkg_name, complete_version(v1)), pkg_comp_name_version)
         else:
-            x = lower(list, pb.Package(pkg_name+'x01', ""), pkg_comp_name)
+            x = lower(list, pb.Package(pkg_name + 'x01', ""), pkg_comp_name)
     elif op1 == ">=":
         if v1:
             x = ceiling(list, pb.Package(pkg_name, complete_version(v1)), pkg_comp_name_version)
         else:
-            x = lower(list, pb.Package(pkg_name+'x01', ""), pkg_comp_name)
+            x = lower(list, pb.Package(pkg_name + 'x01', ""), pkg_comp_name)
     else:
         raise Exception("Invalid operator" + op1)
 
@@ -149,3 +154,25 @@ def pkg_range_query(list, pkg_name, op1="", v1="", op2="", v2=""):
             raise Exception("Invalid operator" + op2)
     else:
         return x
+
+
+def get_package_type(path):
+    if ".zip" in path:
+        return "SOURCE"
+    elif ".tar" in path:
+        return "SOURCE"
+    elif ".egg" in path:
+        return "EGG"
+    elif ".whl" in path:
+        return "WHEEL"
+    else:
+        raise Exception("Unrecognized file extension. expected {.zip|.tar*|.egg|.whl}")
+
+
+def items_to_package(items):
+    res = []
+    for item in items:
+        tokens = item.split("/")
+        res.append(pb.Package(tokens[-3], tokens[-2], type=get_package_type(item)))
+    return res
+
