@@ -71,32 +71,11 @@ class PackageBuilder(object):
                 elif ".tar" in raw_package:
                     with tarfile.open(raw_package, "r") as f:
                         self.__info = self.__extract_source(f)
-            elif type == "EGG":
-                with zipfile.ZipFile(raw_package, "r") as f:
-                    self.__info = self.__extract_egg(f)
             elif type == "WHEEL":
                 with zipfile.ZipFile(raw_package, "r") as f:
                     self.__info = self.__extract_wheel(f)
 
             self.__info["type"] = type
-            # if ".zip" in raw_package:
-            #     with zipfile.ZipFile(raw_package, "r") as f:
-            #         self.__info = self.__extract_source(f)
-            #         self.__info["type"] = "SOURCE"
-            # elif ".tar" in raw_package:
-            #     with tarfile.open(raw_package, "r") as f:
-            #         self.__info = self.__extract_source(f)
-            #         self.__info["type"] = "SOURCE"
-            # elif ".egg" in raw_package:
-            #     with zipfile.ZipFile(raw_package, "r") as f:
-            #         self.__info = self.__extract_egg(f)
-            #         self.__info["type"] = "EGG"
-            # elif ".whl" in raw_package:
-            #     with zipfile.ZipFile(raw_package, "r") as f:
-            #         self.__info = self.__extract_wheel(f)
-            #         self.__info["type"] = "WHEEL"
-            # else:
-            #     raise Exception("Unrecognized file extension. expected {.zip|.tar*|.egg|.whl}")
         finally:
             os.chdir(cwd)
             shutil.rmtree(dir)
@@ -109,10 +88,6 @@ class PackageBuilder(object):
                     with open(os.path.join(r, x), "r") as target_file:
                         command(target_file)
                     return
-
-    def __extract_egg(self, zip):
-        # egg needs to get data from PKG-INFO, just like source...
-        return self.__extract_source(zip)
 
     def __extract_source(self, zip):
         class InfoCmd(object):

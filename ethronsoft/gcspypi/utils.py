@@ -161,8 +161,6 @@ def get_package_type(path):
         return "SOURCE"
     elif ".tar" in path:
         return "SOURCE"
-    elif ".egg" in path:
-        return "EGG"
     elif ".whl" in path:
         return "WHEEL"
     else:

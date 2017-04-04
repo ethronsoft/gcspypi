@@ -43,15 +43,21 @@ def process(args):
             print pkg
     elif args["command"] == "list":
         pkg_mgr = pm.PackageManager(args["repository"])
-        paths = set(map(lambda p: "/".join(p.split("/")[:2]), pkg_mgr.list_items(args["package"], True)))
-        last = None
-        for path in sorted(paths):
-            if not last or path in last:
-                last = path.split("/")[0]
-                print "\n"+last
-                print "_____"
-            print "     |\n     |__ " + path.split("/")[1]
-
+        if args["pretty"]:
+            paths = set(map(lambda p: "/".join(p.split("/")[:2]), pkg_mgr.list_items(args["package"], True)))
+            last = None
+            for path in sorted(paths):
+                if not last or not path in last:
+                    last = path.split("/")[0]
+                    print "\n"+last
+                    print "_____"
+                print "     |\n     |__ " + path.split("/")[1]
+        else:
+            for path in sorted(pkg_mgr.list_items(args["package"], True)):
+                print path.split("/")[-1]
+    elif args["command"] == "download":
+        pkg_mgr = pm.PackageManager(args["repository"])
+        print "Downloaded: {0}".format(pkg_mgr.download_by_name(args["obj"], args["dir"]))
     elif args["command"] == "remove":
         pkg_mgr = pm.PackageManager(args["repository"])
         for syntax in args["packages"]:
@@ -92,10 +98,18 @@ def main():
     subparsers = parser.add_subparsers(title="commands", help="use command --help for help", dest="command")
     # upload
     updload_parser = subparsers.add_parser("upload",
-                                           description="Upload a package built by setup.py as either source, egg or wheel")
+                                           description="Upload a package built by setup.py as either source or wheel")
     updload_parser.add_argument("file", metavar="FILE", type=str, help="Package to upload")
     updload_parser.add_argument("-o", "--overwrite", nargs="?", const=True, default=False, type=bool,
                                 help="Overwrites an existing package if user has delete permission on the GCS repository")
+
+    # download
+    download_parser = subparsers.add_parser("download",
+                                           description="Download a package by the provided name")
+    download_parser.add_argument("obj", metavar="FILE", type=str, help="Package to download")
+    download_parser.add_argument("dir", default=".", type=str,
+                                help="directory where to download the file")
+
     # install
     install_parser = subparsers.add_parser("install",
                                            description="""Downloads a package from the GCS repository,
@@ -110,7 +124,7 @@ def main():
                                                 use pip install, using the global configuration""")
     install_parser.add_argument("-nd", "--no-dependencies", nargs="?", default=False, type=bool,
                                 help="""Omit downloading package dependencies""")
-    install_parser.add_argument("-t", "--type", nargs="?", default="SOURCE", choices=['SOURCE', 'WHEEL', 'EGG'])
+    install_parser.add_argument("-t", "--type", nargs="?", default="SOURCE", choices=['SOURCE', 'WHEEL'])
     # uninstall
     uninstall_parser = subparsers.add_parser("uninstall", description="Uninstall a local package")
     uninstall_parser.add_argument("packages", metavar="P", nargs="*", type=str, help="Package(s) to uninstall")
@@ -123,6 +137,7 @@ def main():
                                         description="""Displays all versions of a certain package
                                         or all content of the repository if package name is omitted""")
     list_parser.add_argument("package", nargs="?", default="", help="Package Name")
+    list_parser.add_argument("--pretty", nargs="?", default=False, const=True, type=bool, help="Pretty print")
     # remove
     remove_parser = subparsers.add_parser("remove",
                                           description="""Removes packages from the GCS if user has delete permission

@@ -26,6 +26,20 @@ class PackageManager(object):
         blob = self.__get_bucket().blob(pkg.name + "/" + pkg.version + "/" + os.path.split(filename)[1])
         blob.upload_from_filename(filename)
 
+    def download_by_name(self, obj_name, dest):
+        to_install = ""
+        for path in self.__repo_cache:
+            if obj_name in path:
+                to_install = path
+                break
+        if to_install:
+            output = os.path.join(dest, os.path.split(to_install)[1])
+            blob = self.__get_bucket().blob(to_install)
+            blob.download_to_filename(output)
+            return output
+        else:
+            return ""
+
     def download(self, pkg, dest, preferred_type):
         if not pkg.version:
             pkg = self.search(pkg.name)
