@@ -2,7 +2,7 @@ import datetime
 import re
 import pip
 from google.cloud import storage
-
+from glob import glob
 from pb import *
 from utils import *
 
@@ -103,7 +103,9 @@ class PackageManager(object):
         else:
             try:
                 tmp = tempfile.mkdtemp()
-                root_pkg = self.download(pkg, tmp, preferred_type)
+                root_dir = os.path.join(tmp, pkg.full_name.replace(":", "_"))
+                os.mkdir(root_dir)
+                root_pkg = self.download(pkg, root_dir, preferred_type)
                 if not root_pkg:
                     return
                 if self.__install_deps:
@@ -120,14 +122,16 @@ class PackageManager(object):
                     while scan_targets:
                         scanned_pkg = PackageBuilder(scan_targets.pop()).build()
                         new_internal_reqs = self.__find_internal_requirements(scanned_pkg)
-                        internal_reqs.union(new_internal_reqs)
                         public_reqs = public_reqs.union(scanned_pkg.requirements - new_internal_reqs)
                         # Let's scan the new internal requirements as they may
                         # themselves point to more internal and public requirements.
                         for inreq in new_internal_reqs:
                             req_pkg = self.search(inreq)
-                            req_pkg_installed = self.download(req_pkg, tmp, preferred_type)
+                            req_dir = os.path.join(tmp, req_pkg.full_name.replace(":", "_"))
+                            os.mkdir(req_dir)
+                            req_pkg_installed = self.download(req_pkg, req_dir, preferred_type)
                             if req_pkg_installed:
+                                internal_reqs.add(req_pkg.full_name.replace(":", "=="))
                                 scan_targets.add(req_pkg_installed)
 
                     #let's proceed installing all public requirements first
@@ -149,7 +153,7 @@ class PackageManager(object):
     def clone(self, root):
         cwd = os.getcwd()
         try:
-            tmp = os.path.join(root,"__tmp")
+            tmp = os.path.join(root, "__tmp")
             os.makedirs(tmp)
             for path in self.__repo_cache:
                 dest = os.path.join(tmp, path)
@@ -167,7 +171,6 @@ class PackageManager(object):
         finally:
             os.chdir(cwd)
             shutil.rmtree(tmp)
-
 
     def restore(self, zip_repo):
         if self.__repo_cache:
@@ -195,7 +198,7 @@ class PackageManager(object):
         return storage.Client().bucket(self.__bucket_name)
 
     def __find_internal_requirements(self, pkg):
-        res =  set([])
+        res = set([])
         for req in pkg.requirements:
             if self.search(req):
                 res.add(req)
@@ -211,7 +214,10 @@ class PackageManager(object):
             #we have saved the temp packages using Package::full_name().replace(":,"_")
             #so let's get back our package to reference that file
             pkg = Package.from_text(r)
-            self.__pip_install(os.path.join(install_dir,pkg.full_name.replace(":", "_")), ["--no-dependencies"])
+            pkg_dir = os.path.join(install_dir, pkg.full_name.replace(":", "_"))
+            pkg_path = os.path.join(pkg_dir, os.listdir(pkg_dir)[0])
+            #install first (and only) file in the pkg_directory
+            self.__pip_install(pkg_path, ["--no-dependencies"])
 
     def __public_install(self, requirements):
         for r in requirements:
