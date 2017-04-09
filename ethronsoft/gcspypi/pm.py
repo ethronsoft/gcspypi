@@ -85,9 +85,18 @@ class PackageManager(object):
     def remove(self, pkg):
         bucket = self.__get_bucket()
         l = self.list_items(prefix=pkg.name + "/" + pkg.version, from_cache=True)
+        if not l:
+            return False
+        print "The following packages will be removed: "
+        print "\n".join(l)
+        ok = raw_input("Do you want to proceed? [y | n]:")
+        if ok.upper().strip() != "Y":
+            print "Aborting deletion of {}".format(pkg.name)
+            return False
         for x in l:
             try:
                 bucket.blob(x).delete()
+                self.__repo_cache = [x for x in self.__repo_cache if not "{}/".format(pkg.name) in x]
                 return True
             except Exception:
                 return False
