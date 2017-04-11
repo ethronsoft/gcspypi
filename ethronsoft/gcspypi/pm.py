@@ -5,6 +5,7 @@ from google.cloud import storage
 from glob import glob
 from pb import *
 from utils import *
+import sys
 
 
 class PackageManager(object):
@@ -96,10 +97,11 @@ class PackageManager(object):
         for x in l:
             try:
                 bucket.blob(x).delete()
-                self.__repo_cache = [x for x in self.__repo_cache if not "{}/".format(pkg.name) in x]
-                return True
             except Exception:
+                sys.stderr.write("Error while removing {}".format(x))
                 return False
+        self.__repo_cache = [x for x in self.__repo_cache if not "{}/".format(pkg.name) in x]
+        return True
 
     def install(self, syntax, preferred_type):
         pkg = self.search(syntax)
