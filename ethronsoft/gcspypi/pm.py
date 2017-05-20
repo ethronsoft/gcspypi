@@ -103,7 +103,7 @@ class PackageManager(object):
         self.__repo_cache = [x for x in self.__repo_cache if not "{}/".format(pkg.name) in x]
         return True
 
-    def install(self, syntax, preferred_type):
+    def install(self, syntax, preferred_type, no_user):
         pkg = self.search(syntax)
         is_internal = pkg is not None
         if not is_internal:
@@ -146,15 +146,27 @@ class PackageManager(object):
                                 scan_targets.add(req_pkg_installed)
 
                     #let's proceed installing all public requirements first
-                    self.__public_install(public_reqs)
+		    pub_flags = []
+		    if not no_user: pub_flags.append("--user")
+                    self.__public_install(public_reqs, pub_flags)
                     #let's continue with our private requirements
-                    self.__internal_install(internal_reqs, tmp)
+        	    #Because all dependendencies (public or internal)
+        	    #that one of these packages may have is already either
+        	    #in this requriments list or in the one passed to
+        	    #public_install,we can use pip --no-dependencies flag
+                    intern_flags = ["--no-dependencies"]
+                    if not no_user: intern_flags.append("--user")
+                    self.__internal_install(internal_reqs, tmp, intern_flags)
                     #then let's use pip install to install the orignal package.
                     #because we have already taken care of dependendencies, we can
                     #use pip --no-dependencies flag
-                    self.__pip_install(root_pkg, ["--no-dependencies"])
+                    root_flags = ["--no-dependencies"]
+                    if not no_user: root_flags.append("--user")
+                    self.__pip_install(root_pkg, root_flags)
                 else:
-                    self.__pip_install(root_pkg, ["--no-dependencies"])
+                    root_flags = ["--no-dependencies", "--user"]
+                    if not no_user: root_flags.append("--user")
+                    self.__pip_install(root_pkg, root_flags)
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
 
@@ -215,12 +227,8 @@ class PackageManager(object):
                 res.add(req)
         return res
 
-    def __internal_install(self, requirements, install_dir):
+    def __internal_install(self, requirements, install_dir, install_flags):
         #install the private package using pip.
-        #Because all dependendencies (public or internal)
-        #that one of these packages may have is already either
-        #in this requriments list or in the one passed to
-        #public_install,we can use pip --no-dependencies flag
         for r in requirements:
             #we have saved the temp packages using Package::full_name().replace(":,"_")
             #so let's get back our package to reference that file
@@ -228,11 +236,11 @@ class PackageManager(object):
             pkg_dir = os.path.join(install_dir, pkg.full_name.replace(":", "_"))
             pkg_path = os.path.join(pkg_dir, os.listdir(pkg_dir)[0])
             #install first (and only) file in the pkg_directory
-            self.__pip_install(pkg_path, ["--no-dependencies"])
+            self.__pip_install(pkg_path, install_flags)
 
-    def __public_install(self, requirements):
+    def __public_install(self, requirements, install_flags):
         for r in requirements:
-            self.__pip_install(r)
+            self.__pip_install(r, install_flags)
 
     def __pip_install(self, resource, flags=[]):
         pip.main(["install", resource] + flags)

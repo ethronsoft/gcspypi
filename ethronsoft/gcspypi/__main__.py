@@ -73,7 +73,7 @@ def process(args):
         pkg_mgr = pm.PackageManager(args["repository"],
                                     mirroring=args["mirror"], install_deps=not args["no_dependencies"])
         for syntax in args["packages"]:
-            pkg_mgr.install(syntax, args["type"])
+            pkg_mgr.install(syntax, args["type"], args["no_user"])
     elif args["command"] == "uninstall":
         pkg_mgr = pm.PackageManager(args["repository"])
         for syntax in args["packages"]:
@@ -125,6 +125,7 @@ def main():
     install_parser.add_argument("-nd", "--no-dependencies", nargs="?", default=False, type=bool,
                                 help="""Omit downloading package dependencies""")
     install_parser.add_argument("-t", "--type", nargs="?", default="SOURCE", choices=['SOURCE', 'WHEEL'])
+    install_parser.add_argument("--no-user", default=False, const=True, nargs="?", type=bool, help="do not use option --user when installing a package via `pip install`")
     # uninstall
     uninstall_parser = subparsers.add_parser("uninstall", description="Uninstall a local package")
     uninstall_parser.add_argument("packages", metavar="P", nargs="*", type=str, help="Package(s) to uninstall")
