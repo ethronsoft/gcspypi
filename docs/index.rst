@@ -26,6 +26,12 @@ Features
 Install
 =======
 
+.. note::
+        At the time of writing (June 2017), the google python dependencies
+        gcspypi uses are working only on python2.7. 
+        If you are a python3 user, install gcspypi in a virtualenv built on
+        python2.7 and use it whenever interfacing with gcspypi.
+
 Install with pip
 ----------------
 
