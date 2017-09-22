@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
 	name='gcspypi',
-	version='1.0.1',
+	version='1.0.2',
 	author='Ethronsoft',
 	author_email='dev@ethronsoft.com',
 	license=open("LICENSE").read(),
@@ -10,7 +10,6 @@ setup(
 	url="https://github.com/ethronsoft/gcspypi",
 	description="Private packages repository backed by Google Cloud Storage",
 	packages=['ethronsoft','ethronsoft.gcspypi'],
-	namespace_packages = ['ethronsoft'],
 	install_requires=[
 		"google-cloud"
 	],
