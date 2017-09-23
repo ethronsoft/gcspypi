@@ -11,7 +11,7 @@ setup(
 	description="Private packages repository backed by Google Cloud Storage",
 	packages=['ethronsoft','ethronsoft.gcspypi'],
 	install_requires=[
-		"google-cloud"
+		"google-cloud==0.23"
 	],
 	entry_points={
 		'console_scripts': [
