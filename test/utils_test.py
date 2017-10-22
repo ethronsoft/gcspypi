@@ -1,9 +1,10 @@
 import sys
+import os
 import unittest
 
-sys.path.append("../ethronsoft/gcspypi")
-from ethronsoft.gcspypi.pb import Package
-from ethronsoft.gcspypi.utils import *
+sys.path.append(os.path.join(os.path.dirname(__file__),"../ethronsoft/gcspypi"))
+from pb import Package
+from utils import *
 
 class TestUtils(unittest.TestCase):
 

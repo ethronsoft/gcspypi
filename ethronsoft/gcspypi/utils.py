@@ -1,5 +1,13 @@
+from __future__ import division
 import pb
 
+def cmp(a,b):
+    if a > b:
+        return 1
+    elif a < b:
+        return -1
+    else:
+        return 0
 
 def pkg_comp_name_version(i, x):
     if i.name == x.name:
@@ -29,7 +37,7 @@ def cmp_bisect(list, key, cmp=cmp):
     hi = len(list) - 1
     mid = 0
     while (lo <= hi):
-        mid = lo + (hi - lo) / 2
+        mid = lo + (hi - lo) // 2
         i = cmp(list[mid], key)
         if i < 0:
             lo = mid + 1
