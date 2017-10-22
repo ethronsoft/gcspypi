@@ -15,7 +15,7 @@ class PackageManager(object):
         self.__overwrite = overwrite
         self.__mirroring = mirroring
         self.__install_deps = install_deps
-        self.__prog = re.compile("((?:\w|-)*)(==|=?<|=?>)?((?:\d*\.?){0,3})?,?(==|=?<|=?>)?((?:\d*\.?){0,3})?")
+        self.__prog = re.compile("((?:\w|-)*)(==|<=?|>=?)?((?:\d*\.?){0,3})?,?(==|<=?|>=?)?((?:\d*\.?){0,3})?")
         self.__repo_cache = []
         self.refresh_cache()
 
@@ -69,7 +69,7 @@ class PackageManager(object):
             return sorted(map(lambda b: b.name, self.__get_bucket().list_blobs(prefix=prefix)))
 
     def search(self, syntax):
-        packages = items_to_package(self.__repo_cache)
+        packages = items_to_package(self.__repo_cache, unique=True)
         #search the repo for packages matching the syntax
         match = self.__prog.match(syntax)
         count = len(match.groups())

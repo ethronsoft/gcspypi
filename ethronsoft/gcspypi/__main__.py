@@ -4,12 +4,13 @@ import os
 
 import pb
 import pm
+import utils
 
 
 def print_syntax():
     print("""
 Syntax:
-    ((?:\w|-)*)(==|=?<|=?>)?((?:\d*\.?){0,3})?,?(==|=?<|=?>)?((?:\d*\.?){0,3})?
+    ((?:\w|-)*)(==|<=?|>=?)?((?:\d*\.?){0,3})?,?(==|<=?|>=?)?((?:\d*\.?){0,3})?
 
 Example:
     1) Refer to package 'abc' with version == 1.0.0
@@ -63,6 +64,9 @@ def process(args):
     elif args["command"] == "install":
         pkg_mgr = pm.PackageManager(args["repository"],
                                     mirroring=args["mirror"], install_deps=not args["no_dependencies"])
+        if args["requirements"]:
+            for syntax in open(args["requirements"], "r").readlines():
+                pkg_mgr.install(syntax, args["type"], args["no_user"])
         for syntax in args["packages"]:
             pkg_mgr.install(syntax, args["type"], args["no_user"])
     elif args["command"] == "uninstall":
@@ -107,8 +111,8 @@ def main():
                                       (or pypi index if mirroring is enabled) and installs it locally""")
     install_parser.add_argument("packages", metavar="P", nargs="*", type=str,
                                 help="Package(s) to install. View syntax using command syntax")
-    install_parser.add_argument("-r", "--requirements", metavar="F", nargs="?", type=str,
-                                help="Additional requirements to install")
+    install_parser.add_argument("-r", "--requirements", metavar="F", nargs="?", default=None, type=str,
+                                help="Additional requirements to install, provided in a requirements.txt file.")
     install_parser.add_argument("-m", "--mirror", nargs="?", default=True, type=bool,
                                 help="""If package to install is not found
                                                 in the GCS repository, attempts to
