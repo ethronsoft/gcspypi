@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
 	name='gcspypi',
-	version='1.0.3',
+	version='1.0.4',
 	author='Ethronsoft',
 	author_email='dev@ethronsoft.com',
 	license=open("LICENSE").read(),
