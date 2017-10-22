@@ -197,6 +197,10 @@ To install the latest package, omit the version::
 
     gcspypi --repository my-org-pypi install test_package
 
+To install dependencies from a requirements.txt file::
+
+    gcspypi --repository my-org-pypi install -r /path/to/requirements.txt
+
 .. note:: 
 
     You can also use ranged versions, such as `>1.0.0,<2.0.0` to install the first version greater than 1.0.0 but smaller than 2.0.0. 
@@ -221,6 +225,10 @@ To install the latest package, omit the version::
 .. note::
 
     You are free to activate a `virtualenv` to control where these packages are getting installed
+
+.. note::
+
+    Installation dependencies are first resolved against your gcspypi repository. If a match is not found and mirroring is enabled, the public pypi repository, as defined by your environement, is then queried via pip. 
 
 Uninstall packages
 ------------------
@@ -286,6 +294,11 @@ FAQ
   
   **Solution**: set process environment variable `GCLOUD_PROJECT` to the desired project id. You can look up your project id in your google cloud dashboard. 
   
+
+
+* I am getting error **Cannot perform a '--user' install. User site-packages are not visible in this virtualenv**.
+
+  **Solution**: install with option '--no-user'
 
 Contribute
 ==========
