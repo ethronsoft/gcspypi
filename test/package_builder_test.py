@@ -1,8 +1,8 @@
 import os
 import sys
 import unittest
-sys.path.append("../ethronsoft/gcspypi")
-from ethronsoft.gcspypi.pb import *
+sys.path.append(os.path.join(os.path.dirname(__file__),"../ethronsoft/gcspypi"))
+from pb import *
 
 class PackageBuilderTest(unittest.TestCase):
 

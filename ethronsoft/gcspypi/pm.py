@@ -1,3 +1,4 @@
+from __future__ import print_function
 import datetime
 import re
 import pip
@@ -14,7 +15,7 @@ class PackageManager(object):
         self.__overwrite = overwrite
         self.__mirroring = mirroring
         self.__install_deps = install_deps
-        self.__prog = re.compile("((?:\w|-)*)(==|=?<|=?>)?((?:\d*\.?){0,3})?,?(==|=?<|=?>)?((?:\d*\.?){0,3})?")
+        self.__prog = re.compile("((?:\w|-)*)(==|<=?|>=?)?((?:\d*\.?){0,3})?,?(==|<=?|>=?)?((?:\d*\.?){0,3})?")
         self.__repo_cache = []
         self.refresh_cache()
 
@@ -68,7 +69,7 @@ class PackageManager(object):
             return sorted(map(lambda b: b.name, self.__get_bucket().list_blobs(prefix=prefix)))
 
     def search(self, syntax):
-        packages = items_to_package(self.__repo_cache)
+        packages = items_to_package(self.__repo_cache, unique=True)
         #search the repo for packages matching the syntax
         match = self.__prog.match(syntax)
         count = len(match.groups())
@@ -88,11 +89,11 @@ class PackageManager(object):
         l = self.list_items(prefix=pkg.name + "/" + pkg.version, from_cache=True)
         if not l:
             return False
-        print "The following packages will be removed: "
-        print "\n".join(l)
+        print("The following packages will be removed: ")
+        print("\n".join(l))
         ok = raw_input("Do you want to proceed? [y | n]:")
         if ok.upper().strip() != "Y":
-            print "Aborting deletion of {}".format(pkg.name)
+            print("Aborting deletion of {}".format(pkg.name))
             return False
         for x in l:
             try:
@@ -110,7 +111,7 @@ class PackageManager(object):
             if self.__mirroring:
                 self.__pip_install(syntax)
             else:
-                print "{0} not in {1} repository".format(pkg.full_nam, self.__bucket_name)
+                print("{0} not in {1} repository".format(pkg.full_nam, self.__bucket_name))
         else:
             try:
                 tmp = tempfile.mkdtemp()
@@ -146,18 +147,18 @@ class PackageManager(object):
                                 scan_targets.add(req_pkg_installed)
 
                     #let's proceed installing all public requirements first
-		    pub_flags = []
-		    if not no_user: pub_flags.append("--user")
+                    pub_flags = []
+                    if not no_user: pub_flags.append("--user")
                     self.__public_install(public_reqs, pub_flags)
                     #let's continue with our private requirements
-        	    #Because all dependendencies (public or internal)
-        	    #that one of these packages may have is already either
-        	    #in this requriments list or in the one passed to
-        	    #public_install,we can use pip --no-dependencies flag
+                    #Because all dependendencies (public or internal)
+                    #that one of these packages may have is already either
+                    #in this requriments list or in the one passed to
+                    #public_install,we can use pip --no-dependencies flag
                     intern_flags = ["--no-dependencies"]
                     if not no_user: intern_flags.append("--user")
                     self.__internal_install(internal_reqs, tmp, intern_flags)
-                    #then let's use pip install to install the orignal package.
+                    #then let's use pip install to install the original package.
                     #because we have already taken care of dependendencies, we can
                     #use pip --no-dependencies flag
                     root_flags = ["--no-dependencies"]
@@ -180,7 +181,10 @@ class PackageManager(object):
             os.makedirs(tmp)
             for path in self.__repo_cache:
                 dest = os.path.join(tmp, path)
-                os.makedirs(os.path.split(dest)[0])
+                dir = os.path.split(dest)[0]
+                if not os.path.exists(dir):
+                    os.makedirs(dir)
+                print("cloning {}".format(path))
                 blob = self.__get_bucket().blob(path)
                 blob.download_to_filename(dest)
             millis = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() * 1000)
@@ -190,7 +194,7 @@ class PackageManager(object):
                 for r, ds, fs in os.walk("."):
                     for f in fs:
                         z.write(os.path.join(r, f))
-            print "Successfully cloned repository {} to {}".format(self.__bucket_name, zip_name)
+            print("Successfully cloned repository {} to {}".format(self.__bucket_name, zip_name))
         finally:
             os.chdir(cwd)
             shutil.rmtree(tmp)
@@ -202,7 +206,7 @@ class PackageManager(object):
             if x.strip() == "y":
                 self.__overwrite = True
             else:
-                print "Aborting operation"
+                print("Aborting operation")
                 return
         tmp = tempfile.mkdtemp()
         with zipfile.ZipFile(zip_repo, "r") as z:
@@ -210,7 +214,9 @@ class PackageManager(object):
         for r, ds, fs in os.walk(tmp):
             for f in fs:
                 pkg = PackageBuilder(os.path.join(r, f)).build()
+                print("restoring {}".format(f))
                 self.upload(pkg, os.path.join(r, f))
+        print("Successfully restored repository {} from {}".format(self.__bucket_name, zip_repo))
 
     def refresh_cache(self):
         self.__repo_cache = self.list_items()

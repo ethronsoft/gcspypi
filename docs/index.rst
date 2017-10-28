@@ -26,11 +26,6 @@ Features
 Install
 =======
 
-.. note::
-        At the time of writing (June 2017), the google python dependencies
-        gcspypi uses are working only on python2.7. 
-        If you are a python3 user, install gcspypi in a virtualenv built on
-        python2.7 and use it whenever interfacing with gcspypi.
 
 Install with pip
 ----------------
@@ -53,6 +48,10 @@ Change directory inside the cloned repository::
 Install the package::
 
     python setup.py install
+    
+Run tests::
+    
+    python -m unittest discover -s test -p "*.py"
 
 Getting Started
 ===============
@@ -197,6 +196,10 @@ To install the latest package, omit the version::
 
     gcspypi --repository my-org-pypi install test_package
 
+To install dependencies from a requirements.txt file::
+
+    gcspypi --repository my-org-pypi install -r /path/to/requirements.txt
+
 .. note:: 
 
     You can also use ranged versions, such as `>1.0.0,<2.0.0` to install the first version greater than 1.0.0 but smaller than 2.0.0. 
@@ -221,6 +224,10 @@ To install the latest package, omit the version::
 .. note::
 
     You are free to activate a `virtualenv` to control where these packages are getting installed
+
+.. note::
+
+    Installation dependencies are first resolved against your gcspypi repository. If a match is not found and mirroring is enabled, the public pypi repository, as defined by your environement, is then queried via pip. 
 
 Uninstall packages
 ------------------
@@ -276,6 +283,24 @@ Restore a repository
 To push a local .zip copy of the `my-org-pypi`, previously obtained with `pull`, onto a new repository `my-new-org-pypi`::
 
     gcspypi --repository my-new-org-pypi push /path/to/zipped/repo/*.zip
+
+FAQ
+==========
+
+* I am getting error **OSError: Project was not passed and coud not be determined from the environment"**.
+  
+  When you used `gcloud init`, you have setup a default configuration and selected an active project. This error is about gcloud not being able to infer that project from the environment "variable" that you have made available with `gcloud auth application-default login`. We have noticed this error when running gcspypi in a Python 3.6 virtual environment. 
+  
+  **Solution**: set process environment variable `GCLOUD_PROJECT` to the desired project id.
+  You can look up your project id in your google cloud dashboard, or via::
+  
+    gcloud projects list
+  
+
+
+* I am getting error **Cannot perform a '--user' install. User site-packages are not visible in this virtualenv**.
+
+  **Solution**: install with option '--no-user'
 
 Contribute
 ==========

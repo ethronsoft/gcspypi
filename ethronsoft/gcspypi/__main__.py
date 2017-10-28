@@ -1,14 +1,16 @@
+from __future__ import print_function
 import argparse
 import os
 
 import pb
 import pm
+import utils
 
 
 def print_syntax():
-    print """
+    print("""
 Syntax:
-    ((?:\w|-)*)(==|=?<|=?>)?((?:\d*\.?){0,3})?,?(==|=?<|=?>)?((?:\d*\.?){0,3})?
+    ((?:\w|-)*)(==|<=?|>=?)?((?:\d*\.?){0,3})?,?(==|<=?|>=?)?((?:\d*\.?){0,3})?
 
 Example:
     1) Refer to package 'abc' with version == 1.0.0
@@ -32,7 +34,7 @@ Note: a 0 may be omitted in specifying the version if followed by zeros
         > would be equivalent to >0.0.0
         1 would be equivalent to 1.0.0
         1.1 would be equivalent to 1.1.0
-"""
+""")
 
 
 def process(args):
@@ -40,24 +42,14 @@ def process(args):
         pkg_mgr = pm.PackageManager(args["repository"])
         for syntax in args["syntax"]:
             pkg = pkg_mgr.search(syntax)
-            print pkg
+            print(pkg)
     elif args["command"] == "list":
         pkg_mgr = pm.PackageManager(args["repository"])
-        if args["pretty"]:
-            paths = set(map(lambda p: "/".join(p.split("/")[:2]), pkg_mgr.list_items(args["package"], True)))
-            last = None
-            for path in sorted(paths):
-                if not last or not path in last:
-                    last = path.split("/")[0]
-                    print "\n"+last
-                    print "_____"
-                print "     |\n     |__ " + path.split("/")[1]
-        else:
-            for path in sorted(pkg_mgr.list_items(args["package"], True)):
-                print path.split("/")[-1]
+        for path in sorted(pkg_mgr.list_items(args["package"], True)):
+                print(path.split("/")[-1])
     elif args["command"] == "download":
         pkg_mgr = pm.PackageManager(args["repository"])
-        print "Downloaded: {0}".format(pkg_mgr.download_by_name(args["obj"], args["dir"]))
+        print("Downloaded: {0}".format(pkg_mgr.download_by_name(args["obj"], args["dir"])))
     elif args["command"] == "remove":
         pkg_mgr = pm.PackageManager(args["repository"])
         for syntax in args["packages"]:
@@ -72,6 +64,9 @@ def process(args):
     elif args["command"] == "install":
         pkg_mgr = pm.PackageManager(args["repository"],
                                     mirroring=args["mirror"], install_deps=not args["no_dependencies"])
+        if args["requirements"]:
+            for syntax in open(args["requirements"], "r").readlines():
+                pkg_mgr.install(syntax, args["type"], args["no_user"])
         for syntax in args["packages"]:
             pkg_mgr.install(syntax, args["type"], args["no_user"])
     elif args["command"] == "uninstall":
@@ -116,8 +111,8 @@ def main():
                                       (or pypi index if mirroring is enabled) and installs it locally""")
     install_parser.add_argument("packages", metavar="P", nargs="*", type=str,
                                 help="Package(s) to install. View syntax using command syntax")
-    install_parser.add_argument("-r", "--requirements", metavar="F", nargs="?", type=str,
-                                help="Additional requirements to install")
+    install_parser.add_argument("-r", "--requirements", metavar="F", nargs="?", default=None, type=str,
+                                help="Additional requirements to install, provided in a requirements.txt file.")
     install_parser.add_argument("-m", "--mirror", nargs="?", default=True, type=bool,
                                 help="""If package to install is not found
                                                 in the GCS repository, attempts to
@@ -138,7 +133,6 @@ def main():
                                         description="""Displays all versions of a certain package
                                         or all content of the repository if package name is omitted""")
     list_parser.add_argument("package", nargs="?", default="", help="Package Name")
-    list_parser.add_argument("--pretty", nargs="?", default=False, const=True, type=bool, help="Pretty print")
     # remove
     remove_parser = subparsers.add_parser("remove",
                                           description="""Removes packages from the GCS if user has delete permission

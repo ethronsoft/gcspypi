@@ -1,14 +1,51 @@
+from __future__ import division
 import pb
+import functools
+
+def cmp(a,b):
+    if a > b:
+        return 1
+    elif a < b:
+        return -1
+    else:
+        return 0
 
 
+def pkg_comp_version(v1, v2):
+    """
+    Given version v1 and v2,
+    with format MM.mm.bb and tokens
+    [MM, mm, bb]
+    let's compare them token by
+    token, converting tokens starting with a 0
+    in decimals
+    """
+    def leading_zeroes(v):
+        res = 0
+        for x in v:
+            if x == "0":
+                res += 1
+            else:
+                break
+        return res
+    v1 = v1.split(".")
+    v2 = v2.split(".")
+    #versions get adjusted to len == 3
+    #by function complete_version
+    assert len(v1) == len(v2) == 3
+    for i in range(3):
+        v1i = float(v1[i]) / (10 ** leading_zeroes(v1[i]))
+        v2i = float(v2[i]) / (10 ** leading_zeroes(v2[i]))
+        if v1i > v2i:
+            return 1
+        elif v1i < v2i:
+            return -1
+    return 0
+    
+    
 def pkg_comp_name_version(i, x):
     if i.name == x.name:
-        if i.version == x.version:
-            return 0
-        elif i.version < x.version:
-            return -1
-        else:
-            return 1
+        return pkg_comp_version(i.version, x.version)
     elif i.name > x.name:
         return 1
     else:
@@ -28,8 +65,8 @@ def cmp_bisect(list, key, cmp=cmp):
     lo = 0
     hi = len(list) - 1
     mid = 0
-    while (lo <= hi):
-        mid = lo + (hi - lo) / 2
+    while lo <= hi:
+        mid = lo + ((hi - lo) // 2)
         i = cmp(list[mid], key)
         if i < 0:
             lo = mid + 1
@@ -167,10 +204,20 @@ def get_package_type(path):
         raise Exception("Unrecognized file extension. expected {.zip|.tar*|.egg|.whl}")
 
 
-def items_to_package(items):
+def items_to_package(items, unique=False):
     res = []
+    s = set([])
     for item in items:
         tokens = item.split("/")
-        res.append(pb.Package(tokens[-3], tokens[-2], type=get_package_type(item)))
+        name = tokens[-3]
+        version = tokens[-2]
+        if unique:
+            key = "{}/{}".format(name, version)
+            if key not in s:
+                res.append(pb.Package(name, version, type=get_package_type(item)))
+                s.add(key)
+        else:
+            res.append(pb.Package(name, version, type=get_package_type(item)))
+    sorted(res, key=functools.cmp_to_key(pkg_comp_name_version))
     return res
 
