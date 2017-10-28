@@ -8,7 +8,7 @@ class PackageBuilderTest(unittest.TestCase):
 
     def test_src(self):
         dir = os.path.dirname(os.path.abspath(__file__))
-        pkg = PackageBuilder(os.path.join(dir,"data","dist","test_package-1.0.0.tar.gz")).build()
+        pkg = PackageBuilder(os.path.join(dir,"data","pkgs","test_package-1.0.0.tar.gz")).build()
         self.assertEqual(pkg.name, "test-package")
         self.assertEqual(pkg.version, "1.0.0")
         self.assertEqual(pkg.requirements, set(["test-dep1", "test-dep2"]))
@@ -16,11 +16,18 @@ class PackageBuilderTest(unittest.TestCase):
 
     def test_wheel(self):
         dir = os.path.dirname(os.path.abspath(__file__))
-        pkg = PackageBuilder(os.path.join(dir,"data","dist","test_package-1.0.0-py2-none-any.whl")).build()
+        pkg = PackageBuilder(os.path.join(dir,"data","pkgs","test_package-1.0.0-py2-none-any.whl")).build()
         self.assertEqual(pkg.name, "test-package")
         self.assertEqual(pkg.version, "1.0.0")
         self.assertEqual(pkg.requirements, set(["test-dep1", "test-dep2"]))
         self.assertEqual(pkg.type, "WHEEL")
 
+    def test_wheel2(self):
+        dir = os.path.dirname(os.path.abspath(__file__))
+        pkg = PackageBuilder(os.path.join(dir,"data","pkgs","test_package-1.0.0-py3-none-any.whl")).build()
+        self.assertEqual(pkg.name, "test-package")
+        self.assertEqual(pkg.version, "1.0.0")
+        self.assertEqual(pkg.requirements, set(["test-dep1", "test-dep2"]))
+        self.assertEqual(pkg.type, "WHEEL")
 if __name__ == "__main__":
     unittest.main()
