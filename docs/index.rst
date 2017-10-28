@@ -48,6 +48,10 @@ Change directory inside the cloned repository::
 Install the package::
 
     python setup.py install
+    
+Run tests::
+    
+    python -m unittest discover -s test -p "*.py"
 
 Getting Started
 ===============
@@ -287,7 +291,10 @@ FAQ
   
   When you used `gcloud init`, you have setup a default configuration and selected an active project. This error is about gcloud not being able to infer that project from the environment "variable" that you have made available with `gcloud auth application-default login`. We have noticed this error when running gcspypi in a Python 3.6 virtual environment. 
   
-  **Solution**: set process environment variable `GCLOUD_PROJECT` to the desired project id. You can look up your project id in your google cloud dashboard. 
+  **Solution**: set process environment variable `GCLOUD_PROJECT` to the desired project id.
+  You can look up your project id in your google cloud dashboard, or via::
+  
+    gcloud projects list
   
 
 
