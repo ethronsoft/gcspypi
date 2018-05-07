@@ -2,9 +2,9 @@ from __future__ import print_function
 import argparse
 import os
 
-import pb
-import pm
-import utils
+from ethronsoft.gcspypi import pm
+from ethronsoft.gcspypi import pb
+from ethronsoft.gcspypi import utils
 
 
 def print_syntax():
@@ -45,7 +45,7 @@ def process(args):
             print(pkg)
     elif args["command"] == "list":
         pkg_mgr = pm.PackageManager(args["repository"])
-        for path in sorted(pkg_mgr.list_items(args["package"], True)):
+        for path in sorted(pkg_mgr.list_items(args["package"], from_cache=True)):
                 print(path.split("/")[-1])
     elif args["command"] == "download":
         pkg_mgr = pm.PackageManager(args["repository"])
