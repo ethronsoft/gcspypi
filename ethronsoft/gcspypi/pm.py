@@ -1,12 +1,19 @@
 from __future__ import print_function
+from google.cloud import storage
+from ethronsoft.gcspypi import pb 
+from ethronsoft.gcspypi import utils 
+
+import os
+import sys
 import datetime
 import re
-import pip
-from google.cloud import storage
+import subprocess
+import tempfile
+import shutil
+import zipfile
 from glob import glob
-from pb import *
-from utils import *
-import sys
+
+
 
 
 class PackageManager(object):
@@ -69,7 +76,7 @@ class PackageManager(object):
             return sorted(map(lambda b: b.name, self.__get_bucket().list_blobs(prefix=prefix)))
 
     def search(self, syntax):
-        packages = items_to_package(self.__repo_cache, unique=True)
+        packages = utils.items_to_package(self.__repo_cache, unique=True)
         #search the repo for packages matching the syntax
         match = self.__prog.match(syntax)
         count = len(match.groups())
@@ -82,7 +89,7 @@ class PackageManager(object):
             raise Exception("missing package name")
         if (not firstop and firstv) or (not secondop and secondv):
             raise Exception("cannot specify a version number without an operator")
-        return pkg_range_query(packages, name.replace("_", "-"), firstop, firstv, secondop, secondv)
+        return utils.pkg_range_query(packages, name.replace("_", "-"), firstop, firstv, secondop, secondv)
 
     def remove(self, pkg):
         bucket = self.__get_bucket()
@@ -132,7 +139,7 @@ class PackageManager(object):
                     # names of public requirements
                     public_reqs = set([])
                     while scan_targets:
-                        scanned_pkg = PackageBuilder(scan_targets.pop()).build()
+                        scanned_pkg = pb.PackageBuilder(scan_targets.pop()).build()
                         new_internal_reqs = self.__find_internal_requirements(scanned_pkg)
                         public_reqs = public_reqs.union(scanned_pkg.requirements - new_internal_reqs)
                         # Let's scan the new internal requirements as they may
@@ -172,7 +179,8 @@ class PackageManager(object):
                 shutil.rmtree(tmp, ignore_errors=True)
 
     def uninstall(self, pkg):
-        pip.main(["uninstall", pkg.full_name.replace(":", "==")])
+        subprocess.check_call(["python", "-m", "pip","uninstall", pkg.full_name.replace(":", "==")])
+        # pip.main(["uninstall", pkg.full_name.replace(":", "==")])
 
     def clone(self, root):
         cwd = os.getcwd()
@@ -213,7 +221,7 @@ class PackageManager(object):
             z.extractall(tmp)
         for r, ds, fs in os.walk(tmp):
             for f in fs:
-                pkg = PackageBuilder(os.path.join(r, f)).build()
+                pkg = pb.PackageBuilder(os.path.join(r, f)).build()
                 print("restoring {}".format(f))
                 self.upload(pkg, os.path.join(r, f))
         print("Successfully restored repository {} from {}".format(self.__bucket_name, zip_repo))
@@ -238,7 +246,7 @@ class PackageManager(object):
         for r in requirements:
             #we have saved the temp packages using Package::full_name().replace(":,"_")
             #so let's get back our package to reference that file
-            pkg = Package.from_text(r)
+            pkg = pb.Package.from_text(r)
             pkg_dir = os.path.join(install_dir, pkg.full_name.replace(":", "_"))
             pkg_path = os.path.join(pkg_dir, os.listdir(pkg_dir)[0])
             #install first (and only) file in the pkg_directory
@@ -249,6 +257,7 @@ class PackageManager(object):
             self.__pip_install(r, install_flags)
 
     def __pip_install(self, resource, flags=[]):
-        pip.main(["install", resource] + flags)
+        subprocess.check_call(["python", "-m", "pip","install", resource] + flags)
+        # pip.main(["install", resource] + flags)
 
 

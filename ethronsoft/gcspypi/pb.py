@@ -5,7 +5,7 @@ import tarfile
 import tempfile
 import zipfile
 
-import utils
+from ethronsoft.gcspypi import utils
 
 
 class Package(object):

@@ -1,5 +1,4 @@
 from __future__ import division
-import pb
 import functools
 
 def cmp(a,b):
@@ -143,6 +142,7 @@ def complete_version(v):
 
 
 def pkg_range_query(list, pkg_name, op1="", v1="", op2="", v2=""):
+    import ethronsoft.gcspypi.pb as pb
     # empty version means last version
     if op1 == "==" or not op1:
         if v1:
@@ -205,6 +205,7 @@ def get_package_type(path):
 
 
 def items_to_package(items, unique=False):
+    import ethronsoft.gcspypi.pb as pb
     res = []
     s = set([])
     for item in items:

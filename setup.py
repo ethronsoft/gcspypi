@@ -10,9 +10,16 @@ setup(
     url="https://github.com/ethronsoft/gcspypi",
     include_package_data=True,
     description="Private packages repository backed by Google Cloud Storage",
-    packages=['ethronsoft','ethronsoft.gcspypi'],
+    packages=["ethronsoft", "ethronsoft.gcspypi"],
+    zip_safe=False,
     install_requires=[
         "google-cloud-storage==1.5.0"
+    ],
+    tests_require=[
+        'pytest'
+    ],
+    setup_requires=[
+        'pytest-runner'
     ],
     entry_points={
         'console_scripts': [
