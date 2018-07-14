@@ -6,6 +6,8 @@ from ethronsoft.gcspypi import pm
 from ethronsoft.gcspypi import pb
 from ethronsoft.gcspypi import utils
 
+from ethronsoft.gcspypi.parsers import ALL_PARSERS
+
 
 def print_syntax():
     print("""
@@ -91,66 +93,85 @@ def main():
     parser.add_argument("--repository", metavar="R", type=str, nargs="?",
                         help="Specifies GCS bucket name hosting the packages")
     subparsers = parser.add_subparsers(title="commands", help="use command --help for help", dest="command")
-    # upload
-    updload_parser = subparsers.add_parser("upload",
-                                           description="Upload a package built by setup.py as either source or wheel")
-    updload_parser.add_argument("file", metavar="FILE", type=str, help="Package to upload")
-    updload_parser.add_argument("-o", "--overwrite", nargs="?", const=True, default=False, type=bool,
-                                help="Overwrites an existing package if user has delete permission on the GCS repository")
+    # # upload
+    # updload_parser = subparsers.add_parser("upload",
+    #                                        description="Upload a package built by setup.py as either source or wheel")
+    # updload_parser.add_argument("file", metavar="FILE", type=str, help="Package to upload")
+    # updload_parser.add_argument("-o", "--overwrite", nargs="?", const=True, default=False, type=bool,
+    #                             help="Overwrites an existing package if user has delete permission on the GCS repository")
 
-    # download
-    download_parser = subparsers.add_parser("download",
-                                           description="Download a package by the provided name")
-    download_parser.add_argument("obj", metavar="FILE", type=str, help="Package to download")
-    download_parser.add_argument("dir", default=".", type=str,
-                                help="directory where to download the file")
+    # # download
+    # download_parser = subparsers.add_parser("download",
+    #                                        description="Download a package by the provided name")
+    # download_parser.add_argument("obj", metavar="FILE", type=str, help="Package to download")
+    # download_parser.add_argument("dir", default=".", type=str,
+    #                             help="directory where to download the file")
 
-    # install
-    install_parser = subparsers.add_parser("install",
-                                           description="""Downloads a package from the GCS repository,
-                                      (or pypi index if mirroring is enabled) and installs it locally""")
-    install_parser.add_argument("packages", metavar="P", nargs="*", type=str,
-                                help="Package(s) to install. View syntax using command syntax")
-    install_parser.add_argument("-r", "--requirements", metavar="F", nargs="?", default=None, type=str,
-                                help="Additional requirements to install, provided in a requirements.txt file.")
-    install_parser.add_argument("-m", "--mirror", nargs="?", default=True, type=bool,
-                                help="""If package to install is not found
-                                                in the GCS repository, attempts to
-                                                use pip install, using the global configuration""")
-    install_parser.add_argument("-nd", "--no-dependencies", nargs="?", default=False, type=bool,
-                                help="""Omit downloading package dependencies""")
-    install_parser.add_argument("-t", "--type", nargs="?", default="SOURCE", choices=['SOURCE', 'WHEEL'])
-    install_parser.add_argument("--no-user", default=False, const=True, nargs="?", type=bool, help="do not use option --user when installing a package via `pip install`")
-    # uninstall
-    uninstall_parser = subparsers.add_parser("uninstall", description="Uninstall a local package")
-    uninstall_parser.add_argument("packages", metavar="P", nargs="*", type=str, help="Package(s) to uninstall")
-    # search
-    seach_parser = subparsers.add_parser("search",
-                                         description="Search for packages in the GCS repository. View syntax using command syntax")
-    seach_parser.add_argument("syntax", nargs="+", help="Search syntax")
-    # list
-    list_parser = subparsers.add_parser("list",
-                                        description="""Displays all versions of a certain package
-                                        or all content of the repository if package name is omitted""")
-    list_parser.add_argument("package", nargs="?", default="", help="Package Name")
-    # remove
-    remove_parser = subparsers.add_parser("remove",
-                                          description="""Removes packages from the GCS if user has delete permission
-                                                        on the GCS repository. WARNING: Once executed,
-                                                        this command cannot be undone if not by reinstalling
-                                                        the packages. View syntax using command syntax""")
-    remove_parser.add_argument("packages", metavar="P", nargs="+", type=str,
-                               help="Package(s) to remove. View syntax using command syntax")
-    # backup
-    pull_parser = subparsers.add_parser("pull", description="Pulls the repository at the provided location")
-    pull_parser.add_argument("destination", default=".", help="Directory to pull into")
-    push_parser = subparsers.add_parser("push", description="Pushes the local copy of the repository to the repository")
-    push_parser.add_argument("zipped_repo", help="Name o zipped repository to push")
-    # syntax-example
-    syntax_parser = subparsers.add_parser("syntax", description="Describes syntax used in search and remove commands")
+    # # install
+    # install_parser = subparsers.add_parser("install",
+    #                                        description="""Downloads a package from the GCS repository,
+    #                                   (or pypi index if mirroring is enabled) and installs it locally""")
+    # install_parser.add_argument("packages", metavar="P", nargs="*", type=str,
+    #                             help="Package(s) to install. View syntax using command syntax")
+    # install_parser.add_argument("-r", "--requirements", metavar="F", nargs="?", default=None, type=str,
+    #                             help="Additional requirements to install, provided in a requirements.txt file.")
+    # install_parser.add_argument("-m", "--mirror", nargs="?", default=True, type=bool,
+    #                             help="""If package to install is not found
+    #                                             in the GCS repository, attempts to
+    #                                             use pip install, using the global configuration""")
+    # install_parser.add_argument("-nd", "--no-dependencies", nargs="?", default=False, type=bool,
+    #                             help="""Omit downloading package dependencies""")
+    # install_parser.add_argument("-t", "--type", nargs="?", default="SOURCE", choices=['SOURCE', 'WHEEL'])
+    # install_parser.add_argument("--no-user", default=False, const=True, nargs="?", type=bool, help="do not use option --user when installing a package via `pip install`")
+    # # uninstall
+    # uninstall_parser = subparsers.add_parser("uninstall", description="Uninstall a local package")
+    # uninstall_parser.add_argument("packages", metavar="P", nargs="*", type=str, help="Package(s) to uninstall")
+    # # search
+    # seach_parser = subparsers.add_parser("search",
+    #                                      description="Search for packages in the GCS repository. View syntax using command syntax")
+    # seach_parser.add_argument("syntax", nargs="+", help="Search syntax")
+    # # list
+    # list_parser = subparsers.add_parser("list",
+    #                                     description="""Displays all versions of a certain package
+    #                                     or all content of the repository if package name is omitted""")
+    # list_parser.add_argument("package", nargs="?", default="", help="Package Name")
+    # # remove
+    # remove_parser = subparsers.add_parser("remove",
+    #                                       description="""Removes packages from the GCS if user has delete permission
+    #                                                     on the GCS repository. WARNING: Once executed,
+    #                                                     this command cannot be undone if not by reinstalling
+    #                                                     the packages. View syntax using command syntax""")
+    # remove_parser.add_argument("packages", metavar="P", nargs="+", type=str,
+    #                            help="Package(s) to remove. View syntax using command syntax")
+    # # backup
+    # pull_parser = subparsers.add_parser("pull", description="Pulls the repository at the provided location")
+    # pull_parser.add_argument("destination", default=".", help="Directory to pull into")
+    # push_parser = subparsers.add_parser("push", description="Pushes the local copy of the repository to the repository")
+    # push_parser.add_argument("zipped_repo", help="Name o zipped repository to push")
+    # # syntax-example
+    # syntax_parser = subparsers.add_parser("syntax", description="Describes syntax used in search and remove commands")
+
+    handlers = {
+        p.name: p.handle for p in ALL_PARSERS
+    }
 
     args = vars(parser.parse_args())
-    process(args)
+    # process(args)
+    repository = args.get("repository")
+    if not repository:
+        #let's check in the ~/.gcspypirc
+        rc = os.path.join(os.path.expanduser("~"), ".gcspypirc")
+        if os.path.exists(rc):
+            with open(rc, "r") as f:
+                lines = [x.lower().strip() for x in  f.readlines()]
+                reporc = [x for x in lines if x.startswith("repository")]
+                if reporc and "=" in reporc[0]:
+                    [_, value] = reporc[0].split("=")
+                    repository = value.strip()
+    config = {
+        "repository": repository
+    }
+    handlers[args["command"]](config, args)
 
 if __name__ == "__main__":
     main()

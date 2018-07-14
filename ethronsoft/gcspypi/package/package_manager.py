@@ -1,7 +1,7 @@
 from __future__ import print_function
-from google.cloud import storage
-from ethronsoft.gcspypi import pb 
-from ethronsoft.gcspypi import utils 
+from ethronsoft.gcspypi.exceptions import InvalidParameter, InvalidState
+from ethronsoft.gcspypi.package.package_builder import Package, PackageBuilder
+from ethronsoft.gcspypi.utilities.queries import get_package_type, items_to_package, pkg_range_query
 
 import os
 import sys
@@ -15,10 +15,19 @@ from glob import glob
 
 
 
+class PackageInstaller(object): # pragma: no cover
+
+    def install(self, resource, flags=[]):
+        subprocess.check_call(["python", "-m", "pip","install", resource] + flags)
+
+    def uninstall(self, pkg):
+        subprocess.check_call(["python", "-m", "pip","uninstall", pkg.full_name.replace(":", "==")])
 
 class PackageManager(object):
-    def __init__(self, repo_name, overwrite=False, mirroring=True, install_deps=True):
-        self.__bucket_name = repo_name
+
+    def __init__(self, repo, installer, overwrite=False, mirroring=True, install_deps=True):
+        self.__repo = repo
+        self.__installer = installer
         self.__overwrite = overwrite
         self.__mirroring = mirroring
         self.__install_deps = install_deps
@@ -28,12 +37,13 @@ class PackageManager(object):
 
     def upload(self, pkg, filename):
         if not pkg.version:
-            raise Exception("Version must be specified when uploading a package")
+            raise InvalidParameter("Version must be specified when uploading a package")
         current = self.search(pkg.name + "==" + pkg.version)
         if current and current.type == pkg.type and not self.__overwrite:
-            raise Exception("upload would result in overwrite but overwrite mode is not enabled")
-        blob = self.__get_bucket().blob(pkg.name + "/" + pkg.version + "/" + os.path.split(filename)[1])
-        blob.upload_from_filename(filename)
+            raise InvalidState("upload would result in overwrite but overwrite mode is not enabled")
+        with open(filename, "rb") as f:
+            self.__repo.upload_file(Package.repo_name(pkg, filename), f)
+        self.refresh_cache()
 
     def download_by_name(self, obj_name, dest):
         to_install = ""
@@ -43,8 +53,8 @@ class PackageManager(object):
                 break
         if to_install:
             output = os.path.join(dest, os.path.split(to_install)[1])
-            blob = self.__get_bucket().blob(to_install)
-            blob.download_to_filename(output)
+            with open(output, "wb") as f:
+                self.__repo.download_file(to_install, f)
             return output
         else:
             return ""
@@ -54,17 +64,18 @@ class PackageManager(object):
             pkg = self.search(pkg.name)
             if not pkg: return ""
         target = pkg.full_name.replace(":", "/")
-        l = [item for item in self.__repo_cache if target in item]
-        if l:
-            to_install = l[0]
-            for p in l:
-                if utils.get_package_type(p) == preferred_type:
+        matches = [item for item in self.__repo_cache if target in item]
+        if matches:
+            #we get the first one unless we find a preferred match
+            to_install = matches[0]
+            for p in matches:
+                if get_package_type(p) == preferred_type:
                     to_install = p
                     break
-            #download first
-            blob = self.__get_bucket().blob(to_install)
+            #download
             output = os.path.join(dest, os.path.split(to_install)[1])
-            blob.download_to_filename(output)
+            with open(output, "wb") as f:
+                self.__repo.download_file(to_install, f)
             return output
         else:
             return ""
@@ -73,10 +84,10 @@ class PackageManager(object):
         if from_cache:
             return [item for item in self.__repo_cache if prefix in item]
         else:
-            return sorted(map(lambda b: b.name, self.__get_bucket().list_blobs(prefix=prefix)))
+            return sorted(self.__repo.list(prefix=prefix))
 
     def search(self, syntax):
-        packages = utils.items_to_package(self.__repo_cache, unique=True)
+        packages = items_to_package(self.__repo_cache, unique=True)
         #search the repo for packages matching the syntax
         match = self.__prog.match(syntax)
         count = len(match.groups())
@@ -86,29 +97,30 @@ class PackageManager(object):
         secondop = match.group(4) if count > 3 else ""
         secondv  = match.group(5) if count > 4 else ""
         if not name:
-            raise Exception("missing package name")
+            raise InvalidParameter("missing package name")
         if (not firstop and firstv) or (not secondop and secondv):
-            raise Exception("cannot specify a version number without an operator")
-        return utils.pkg_range_query(packages, name.replace("_", "-"), firstop, firstv, secondop, secondv)
+            raise InvalidParameter("cannot specify a version number without an operator")
+        return pkg_range_query(packages, name.replace("_", "-"), firstop, firstv, secondop, secondv)
 
-    def remove(self, pkg):
-        bucket = self.__get_bucket()
-        l = self.list_items(prefix=pkg.name + "/" + pkg.version, from_cache=True)
-        if not l:
+    def remove(self, pkg, interactive=True):
+        matches = self.list_items(prefix=pkg.name + "/" + pkg.version, from_cache=True)
+        if not matches:
             return False
         print("The following packages will be removed: ")
-        print("\n".join(l))
-        ok = raw_input("Do you want to proceed? [y | n]:")
-        if ok.upper().strip() != "Y":
-            print("Aborting deletion of {}".format(pkg.name))
-            return False
-        for x in l:
+        print("\n".join(matches))
+        if interactive: # pragma: no cover
+            ok = raw_input("Do you want to proceed? [y | n]:")
+            if ok.upper().strip() != "Y":
+                print("Aborting deletion of {}".format(pkg.name))
+                return False
+        for x in matches:
             try:
-                bucket.blob(x).delete()
-            except Exception:
+                self.__repo.delete(x)
+            except Exception: 
                 sys.stderr.write("Error while removing {}".format(x))
                 return False
-        self.__repo_cache = [x for x in self.__repo_cache if not "{}/".format(pkg.name) in x]
+        self.refresh_cache()
+        # self.__repo_cache = [x for x in self.__repo_cache if not "{}/".format(pkg.name) in x]
         return True
 
     def install(self, syntax, preferred_type, no_user):
@@ -116,9 +128,9 @@ class PackageManager(object):
         is_internal = pkg is not None
         if not is_internal:
             if self.__mirroring:
-                self.__pip_install(syntax)
+                self.__installer.install(syntax)
             else:
-                print("{0} not in {1} repository".format(pkg.full_nam, self.__bucket_name))
+                print("{0} not in repository".format(pkg.full_nam))
         else:
             try:
                 tmp = tempfile.mkdtemp()
@@ -139,7 +151,7 @@ class PackageManager(object):
                     # names of public requirements
                     public_reqs = set([])
                     while scan_targets:
-                        scanned_pkg = pb.PackageBuilder(scan_targets.pop()).build()
+                        scanned_pkg = PackageBuilder(scan_targets.pop()).build()
                         new_internal_reqs = self.__find_internal_requirements(scanned_pkg)
                         public_reqs = public_reqs.union(scanned_pkg.requirements - new_internal_reqs)
                         # Let's scan the new internal requirements as they may
@@ -170,16 +182,17 @@ class PackageManager(object):
                     #use pip --no-dependencies flag
                     root_flags = ["--no-dependencies"]
                     if not no_user: root_flags.append("--user")
-                    self.__pip_install(root_pkg, root_flags)
+                    self.__installer.install(root_pkg, root_flags)
                 else:
                     root_flags = ["--no-dependencies", "--user"]
                     if not no_user: root_flags.append("--user")
-                    self.__pip_install(root_pkg, root_flags)
+                    self.__installer.install(root_pkg, root_flags)
             finally:
                 shutil.rmtree(tmp, ignore_errors=True)
 
     def uninstall(self, pkg):
-        subprocess.check_call(["python", "-m", "pip","uninstall", pkg.full_name.replace(":", "==")])
+        self.__installer.uninstall(pkg)
+        # subprocess.check_call(["python", "-m", "pip","uninstall", pkg.full_name.replace(":", "==")])
         # pip.main(["uninstall", pkg.full_name.replace(":", "==")])
 
     def clone(self, root):
@@ -193,16 +206,16 @@ class PackageManager(object):
                 if not os.path.exists(dir):
                     os.makedirs(dir)
                 print("cloning {}".format(path))
-                blob = self.__get_bucket().blob(path)
-                blob.download_to_filename(dest)
+                with open(dest, "wb") as f:
+                    self.__repo.download_file(path, f)
             millis = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() * 1000)
-            zip_name = os.path.join(root, "{}_{}.zip".format(self.__bucket_name, millis))
+            zip_name = os.path.join(root, "{}_{}.zip".format(self.__repo.name, millis))
             with zipfile.ZipFile(zip_name, "w") as z:
                 os.chdir(tmp)
-                for r, ds, fs in os.walk("."):
+                for r, _, fs in os.walk("."):
                     for f in fs:
                         z.write(os.path.join(r, f))
-            print("Successfully cloned repository {} to {}".format(self.__bucket_name, zip_name))
+            print("Successfully cloned repository {} to {}".format(self.__repo.name, zip_name))
         finally:
             os.chdir(cwd)
             shutil.rmtree(tmp)
@@ -210,7 +223,7 @@ class PackageManager(object):
     def restore(self, zip_repo):
         if self.__repo_cache:
             x = raw_input("Repository {} is not empty.\nDo you want to attempt to push into an existing repository? [y|n]: "
-                      .format(self.__bucket_name))
+                      .format(self.__repo.name))
             if x.strip() == "y":
                 self.__overwrite = True
             else:
@@ -219,20 +232,15 @@ class PackageManager(object):
         tmp = tempfile.mkdtemp()
         with zipfile.ZipFile(zip_repo, "r") as z:
             z.extractall(tmp)
-        for r, ds, fs in os.walk(tmp):
+        for r, _, fs in os.walk(tmp):
             for f in fs:
-                pkg = pb.PackageBuilder(os.path.join(r, f)).build()
+                pkg = PackageBuilder(os.path.join(r, f)).build()
                 print("restoring {}".format(f))
                 self.upload(pkg, os.path.join(r, f))
-        print("Successfully restored repository {} from {}".format(self.__bucket_name, zip_repo))
+        print("Successfully restored repository {} from {}".format(self.__repo.name, zip_repo))
 
     def refresh_cache(self):
         self.__repo_cache = self.list_items()
-
-    def __get_bucket(self):
-        ##return a client using the current default login
-        ##set with: gcloud auth application-default login
-        return storage.Client().bucket(self.__bucket_name)
 
     def __find_internal_requirements(self, pkg):
         res = set([])
@@ -246,18 +254,15 @@ class PackageManager(object):
         for r in requirements:
             #we have saved the temp packages using Package::full_name().replace(":,"_")
             #so let's get back our package to reference that file
-            pkg = pb.Package.from_text(r)
+            pkg = Package.from_text(r)
             pkg_dir = os.path.join(install_dir, pkg.full_name.replace(":", "_"))
             pkg_path = os.path.join(pkg_dir, os.listdir(pkg_dir)[0])
             #install first (and only) file in the pkg_directory
-            self.__pip_install(pkg_path, install_flags)
+            self.__installer.install(pkg_path, install_flags)
 
     def __public_install(self, requirements, install_flags):
         for r in requirements:
-            self.__pip_install(r, install_flags)
+            self.__installer.install(r, install_flags)
 
-    def __pip_install(self, resource, flags=[]):
-        subprocess.check_call(["python", "-m", "pip","install", resource] + flags)
-        # pip.main(["install", resource] + flags)
 
 
