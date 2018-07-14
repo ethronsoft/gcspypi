@@ -1,0 +1,6 @@
+[report]
+omit:
+    ethronsoft/gcspypi/__main__.py
+    **/__init__.py
+    ethronsoft/gcspypi/repository/gcloud_remote.py 
+    ethronsoft/gcspypi/parsers/*
