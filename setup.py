@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='gcspypi',
-    version='1.0.5',
+    version='1.0.6',
     author='Ethronsoft',
     author_email='dev@ethronsoft.com',
     license=open("LICENSE").read(),
@@ -13,13 +13,17 @@ setup(
     packages=["ethronsoft", "ethronsoft.gcspypi"],
     zip_safe=False,
     install_requires=[
-        "google-cloud-storage==1.5.0"
+        "tqdm",
+        "colorama",
+        "six==1.11.0",
+        "google-cloud-storage==1.5.0",
     ],
     tests_require=[
-        'pytest'
+        "pytest",
+        "pytest-cov"
     ],
     setup_requires=[
-        'pytest-runner'
+        "pytest-runner"
     ],
     entry_points={
         'console_scripts': [
