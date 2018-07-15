@@ -1,0 +1,20 @@
+stages:
+  - test
+
+test_py2:
+  image: frolvlad/alpine-python2
+  stage: test
+  only: 
+    - master
+    - dev
+  script:
+    - python setup.py test
+
+test_py3:
+  image: frolvlad/alpine-python3
+  stage: test
+  only: 
+    - master
+    - dev
+  script:
+    - python3 setup.py test
