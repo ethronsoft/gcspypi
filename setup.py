@@ -1,8 +1,8 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name='gcspypi',
-    version='1.0.6',
+    version='1.0.7',
     author='Ethronsoft',
     author_email='dev@ethronsoft.com',
     license=open("LICENSE").read(),
@@ -10,7 +10,7 @@ setup(
     url="https://github.com/ethronsoft/gcspypi",
     include_package_data=True,
     description="Private packages repository backed by Google Cloud Storage",
-    packages=["ethronsoft", "ethronsoft.gcspypi"],
+    packages=find_packages(),
     zip_safe=False,
     install_requires=[
         "tqdm",
