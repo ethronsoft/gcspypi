@@ -1,3 +1,18 @@
+from ethronsoft.gcspypi.package.package_manager import PackageManager
+from ethronsoft.gcspypi.utilities.console import Console
+from ethronsoft.gcspypi.parsers.commons import init_repository
+
+def handle_pull(config, data):
+    with Console(verbose=config.get("verbose", False), exit_on_error=True) as c:
+        repo = init_repository(c, config["repository"])
+        pkg_mgr = PackageManager(repo, console=c)
+        pkg_mgr.clone(data["destination"])
+
+def handle_push(config, data):
+    with Console(verbose=config.get("verbose", False), exit_on_error=True) as c:
+        repo = init_repository(c, config["repository"])
+        pkg_mgr = PackageManager(repo, console=c)
+        pkg_mgr.restore(data["zipped_repo"])
 
 class BackupParser(object):
 
@@ -11,4 +26,7 @@ class BackupParser(object):
         push_parser.add_argument("zipped_repo", help="Name o zipped repository to push")
 
     def handle(self, config, data):
-        pass
+        if data["sub_command"] == "pull":
+            handle_pull(config, data)
+        elif data["sub_command"] == "push":
+            handle_push(config, data)

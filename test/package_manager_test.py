@@ -2,6 +2,7 @@ from .mocks.mock_repository import MockRepository as Repository
 from .mocks.mock_installer import MockInstaller as Installer
 from ethronsoft.gcspypi.package.package_manager import PackageManager, Package
 from ethronsoft.gcspypi.exceptions import InvalidParameter, InvalidState
+from ethronsoft.gcspypi.utilities.console import Console
 from pkg_resources import resource_filename
 import pytest
 import tempfile
@@ -10,11 +11,11 @@ import os
 import hashlib
 
 def test_init():
-    pm = PackageManager(repo=Repository(), installer=Installer())
+    pm = PackageManager(repo=Repository(), installer=Installer(), console=Console(exit_on_error=False))
     assert [x for x in pm.list_items()] == []
 
 def test_upload_download():
-    pm = PackageManager(repo=Repository(), installer=Installer(), overwrite=False)
+    pm = PackageManager(repo=Repository(), installer=Installer(), overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     wrong = Package(name="test_package", version="")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
@@ -78,7 +79,7 @@ def test_upload_download():
         shutil.rmtree(tdir)
 
 def test_search():
-    pm = PackageManager(repo=Repository(), installer=Installer(), overwrite=False)
+    pm = PackageManager(repo=Repository(), installer=Installer(), overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -95,7 +96,7 @@ def test_search():
         pm.search("1.0.0")
 
 def test_remove():
-    pm = PackageManager(repo=Repository(), installer=Installer(), overwrite=False)
+    pm = PackageManager(repo=Repository(), installer=Installer(), overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -114,7 +115,7 @@ def test_remove_with_repo_error():
     def problem(x):
         raise Exception()
     repo.delete = problem
-    pm = PackageManager(repo=repo, installer=Installer(), overwrite=False)
+    pm = PackageManager(repo=repo, installer=Installer(), overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -129,7 +130,7 @@ def check_if_uninstalled(installer, resource):
 def test_install_user():
     repo = Repository()
     installer = Installer()
-    pm = PackageManager(repo=repo, installer=installer, overwrite=False)
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -140,7 +141,7 @@ def test_install_user():
 def test_install_no_user():
     repo = Repository()
     installer = Installer()
-    pm = PackageManager(repo=repo, installer=installer, overwrite=False)
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -151,7 +152,7 @@ def test_install_no_user():
 def test_install_public_no_mirror():
     repo = Repository()
     installer = Installer()
-    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=False)
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -162,7 +163,7 @@ def test_install_public_no_mirror():
 def test_install_public_mirror():
     repo = Repository()
     installer = Installer()
-    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True)
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -173,7 +174,7 @@ def test_install_public_mirror():
 def test_install_recursive_internal_packages():
     repo = Repository()
     installer = Installer()
-    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True)
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True, console=Console(exit_on_error=False))
     pkg1 = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename1 = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pkg2 = Package(name="other_package", version="1.0.0", type="SOURCE") #depends on test_package
@@ -190,7 +191,7 @@ def test_install_recursive_internal_packages():
 def test_without_deps():
     repo = Repository()
     installer = Installer()
-    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True, install_deps=False)
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True, install_deps=False, console=Console(exit_on_error=False))
     pkg1 = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename1 = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pkg2 = Package(name="other_package", version="1.0.0", type="SOURCE") #depends on test_package
@@ -204,7 +205,7 @@ def test_without_deps():
 def test_uninstall():
     repo = Repository()
     installer = Installer()
-    pm = PackageManager(repo=repo, installer=installer, overwrite=False)
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -215,7 +216,7 @@ def test_uninstall():
 
 def test_cloning_no_overwrite():
     repo1 = Repository()
-    pm = PackageManager(repo=repo1, installer=Installer(), overwrite=False)
+    pm = PackageManager(repo=repo1, installer=Installer(), overwrite=False, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
@@ -229,7 +230,7 @@ def test_cloning_no_overwrite():
         #is not allowed
         assert not pm.restore(cloned_zip, interactive=False)
 
-        dest_pm = PackageManager(repo=Repository(), installer=Installer())
+        dest_pm = PackageManager(repo=Repository(), installer=Installer(), console=Console(exit_on_error=False))
         assert not dest_pm.list_items()
         dest_pm.restore(cloned_zip, interactive=False)
         assert dest_pm.list_items() == pm.list_items()
@@ -238,7 +239,7 @@ def test_cloning_no_overwrite():
 
 def test_cloning_overwrite():
     repo1 = Repository()
-    pm = PackageManager(repo=repo1, installer=Installer(), overwrite=True)
+    pm = PackageManager(repo=repo1, installer=Installer(), overwrite=True, console=Console(exit_on_error=False))
     pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)

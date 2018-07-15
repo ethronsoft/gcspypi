@@ -2,6 +2,7 @@ from __future__ import print_function
 from ethronsoft.gcspypi.exceptions import InvalidParameter, InvalidState
 from ethronsoft.gcspypi.package.package_builder import Package, PackageBuilder
 from ethronsoft.gcspypi.utilities.queries import get_package_type, items_to_package, pkg_range_query
+from ethronsoft.gcspypi.utilities.console import Console
 
 import os
 import sys
@@ -25,8 +26,9 @@ class PackageInstaller(object): # pragma: no cover
 
 class PackageManager(object):
 
-    def __init__(self, repo, installer, overwrite=False, mirroring=True, install_deps=True):
+    def __init__(self, repo, console, installer=PackageInstaller(), overwrite=False, mirroring=True, install_deps=True):
         self.__repo = repo
+        self.__console = console
         self.__installer = installer
         self.__overwrite = overwrite
         self.__mirroring = mirroring
@@ -106,18 +108,18 @@ class PackageManager(object):
         matches = self.list_items(prefix=pkg.name + "/" + pkg.version, from_cache=True)
         if not matches:
             return False
-        print("The following packages will be removed: ")
-        print("\n".join(matches))
+        self.__console.info("The following packages will be removed: ")
+        self.__console.info("\n".join(matches))
         if interactive: # pragma: no cover
-            ok = raw_input("Do you want to proceed? [y | n]:")
+            ok = self.__console.selection("Do you want to proceed?", ["y", "n"])
             if ok.upper().strip() != "Y":
-                print("Aborting deletion of {}".format(pkg.name))
+                self.__console.warning("Aborting deletion of {}".format(pkg.name))
                 return False
         for x in matches:
             try:
                 self.__repo.delete(x)
-            except Exception: 
-                sys.stderr.write("Error while removing {}".format(x))
+            except Exception:
+                self.__console.error("Error while removing {}".format(x))
                 return False
         self.refresh_cache()
         # self.__repo_cache = [x for x in self.__repo_cache if not "{}/".format(pkg.name) in x]
@@ -130,7 +132,7 @@ class PackageManager(object):
             if self.__mirroring:
                 self.__installer.install(syntax)
             else:
-                print("{0} not in repository".format(syntax))
+                self.__console.warning("{0} not in repository".format(syntax))
         else:
             try:
                 tmp = tempfile.mkdtemp()
@@ -207,7 +209,7 @@ class PackageManager(object):
                 dirn = os.path.split(dest)[0]
                 if not os.path.exists(dirn):
                     os.makedirs(dirn)
-                print("cloning {}".format(path))
+                self.__console.info("cloning {}".format(path))
                 with open(dest, "wb") as f:
                     self.__repo.download_file(path, f)
             millis = int((datetime.datetime.utcnow() - datetime.datetime(1970, 1, 1)).total_seconds() * 1000)
@@ -217,7 +219,7 @@ class PackageManager(object):
                 for r, _, fs in os.walk("."):
                     for f in fs:
                         z.write(os.path.join(r, f))
-            print("Successfully cloned repository {} to {}".format(self.__repo.name, zip_name))
+            self.__console.info("Successfully cloned repository {} to {}".format(self.__repo.name, zip_name))
         finally:
             os.chdir(cwd)
             shutil.rmtree(tmp)
@@ -225,12 +227,14 @@ class PackageManager(object):
     def restore(self, zip_repo, interactive=True):
         if self.__repo_cache and not self.__overwrite:
             if interactive: #pragma: no cover
-                x = raw_input("Repository {} is not empty.\nDo you want to attempt to push into an existing repository? [y|n]: "
-                        .format(self.__repo.name))
-                if x.strip() == "y":
+                ok = self.__console.selection(
+                    "Repository {} is not empty.\nDo you want to attempt to push into an existing repository? [y|n]: ".format(self.__repo.name),
+                    ["y", "n"]
+                )
+                if ok.strip() == "y":
                     self.__overwrite = True
                 else:
-                    print("Aborting operation")
+                    self.__console.warning("Aborting operation")
                     return False
             else:
                 return False
@@ -240,9 +244,9 @@ class PackageManager(object):
         for r, _, fs in os.walk(tmp):
             for f in fs:
                 pkg = PackageBuilder(os.path.join(r, f)).build()
-                print("restoring {}".format(f))
+                self.__console.info("restoring {}".format(f))
                 self.upload(pkg, os.path.join(r, f))
-        print("Successfully restored repository {} from {}".format(self.__repo.name, zip_repo))
+        self.__console.info("Successfully restored repository {} from {}".format(self.__repo.name, zip_repo))
         return True
 
     def refresh_cache(self):

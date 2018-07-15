@@ -2,6 +2,7 @@ from .mocks.mock_repository import MockRepository as Repository
 from ethronsoft.gcspypi.exceptions import InvalidParameter
 from ethronsoft.gcspypi.package.package import Package 
 from ethronsoft.gcspypi.utilities import queries as utils 
+from ethronsoft.gcspypi.utilities.console import Console
 from ethronsoft.gcspypi.package.package_manager import PackageManager 
 import sys
 import os
@@ -18,7 +19,7 @@ def test_version_complete():
 
 def test_version_cmp(data):
     repo = Repository()
-    pkg_mgr = PackageManager(repo=repo, installer=None)
+    pkg_mgr = PackageManager(repo=repo, installer=None, console=Console(exit_on_error=False))
     for syntax in ["toolkit>=1.0.3"]:
         pkg = pkg_mgr.search(syntax)
     assert utils.pkg_comp_version("1.05.0", "1.5.0") < 0
