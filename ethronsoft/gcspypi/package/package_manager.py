@@ -130,15 +130,17 @@ class PackageManager(object):
             if self.__mirroring:
                 self.__installer.install(syntax)
             else:
-                print("{0} not in repository".format(pkg.full_nam))
+                print("{0} not in repository".format(syntax))
         else:
             try:
                 tmp = tempfile.mkdtemp()
                 root_dir = os.path.join(tmp, pkg.full_name.replace(":", "_"))
                 os.mkdir(root_dir)
                 root_pkg = self.download(pkg, root_dir, preferred_type)
-                if not root_pkg:
-                    return
+                #Note: if we got here is because pkg was found in the repository
+                #so the condition below should be redundant
+                # if not root_pkg:
+                    # return False
                 if self.__install_deps:
                     # let's separate all the internal requirements from the public ones.
                     # let's install the internal requirements ourselves and delegate the public ones to pip install.
@@ -202,9 +204,9 @@ class PackageManager(object):
             os.makedirs(tmp)
             for path in self.__repo_cache:
                 dest = os.path.join(tmp, path)
-                dir = os.path.split(dest)[0]
-                if not os.path.exists(dir):
-                    os.makedirs(dir)
+                dirn = os.path.split(dest)[0]
+                if not os.path.exists(dirn):
+                    os.makedirs(dirn)
                 print("cloning {}".format(path))
                 with open(dest, "wb") as f:
                     self.__repo.download_file(path, f)
@@ -220,15 +222,18 @@ class PackageManager(object):
             os.chdir(cwd)
             shutil.rmtree(tmp)
 
-    def restore(self, zip_repo):
-        if self.__repo_cache:
-            x = raw_input("Repository {} is not empty.\nDo you want to attempt to push into an existing repository? [y|n]: "
-                      .format(self.__repo.name))
-            if x.strip() == "y":
-                self.__overwrite = True
+    def restore(self, zip_repo, interactive=True):
+        if self.__repo_cache and not self.__overwrite:
+            if interactive: #pragma: no cover
+                x = raw_input("Repository {} is not empty.\nDo you want to attempt to push into an existing repository? [y|n]: "
+                        .format(self.__repo.name))
+                if x.strip() == "y":
+                    self.__overwrite = True
+                else:
+                    print("Aborting operation")
+                    return False
             else:
-                print("Aborting operation")
-                return
+                return False
         tmp = tempfile.mkdtemp()
         with zipfile.ZipFile(zip_repo, "r") as z:
             z.extractall(tmp)
@@ -238,6 +243,7 @@ class PackageManager(object):
                 print("restoring {}".format(f))
                 self.upload(pkg, os.path.join(r, f))
         print("Successfully restored repository {} from {}".format(self.__repo.name, zip_repo))
+        return True
 
     def refresh_cache(self):
         self.__repo_cache = self.list_items()

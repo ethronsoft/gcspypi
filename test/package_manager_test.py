@@ -119,3 +119,138 @@ def test_remove_with_repo_error():
     filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pm.upload(pkg, filename)
     assert not pm.remove(pkg, interactive=False)
+
+def check_if_installed(installer, resource):
+    return len([(k,v) for (k,v) in installer.installed.items() if resource in k and v > 0]) > 0        
+
+def check_if_uninstalled(installer, resource):
+    return len([(k,v) for (k,v) in installer.uninstalled.items() if resource in k and v > 0]) > 0
+
+def test_install_user():
+    repo = Repository()
+    installer = Installer()
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False)
+    pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pm.upload(pkg, filename)
+    #install
+    pm.install("test_package==1.0.0","WHEEL", no_user=True)
+    assert check_if_installed(installer, "test_package-1.0.0")
+
+def test_install_no_user():
+    repo = Repository()
+    installer = Installer()
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False)
+    pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pm.upload(pkg, filename)
+    #install
+    pm.install("test_package==1.0.0","SOURCE", no_user=False)
+    assert check_if_installed(installer, "test_package-1.0.0")
+
+def test_install_public_no_mirror():
+    repo = Repository()
+    installer = Installer()
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=False)
+    pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pm.upload(pkg, filename)
+    #install
+    pm.install("some_public==1.0.0","SOURCE", no_user=False)
+    assert not check_if_installed(installer, "some_public-1.0.0")
+
+def test_install_public_mirror():
+    repo = Repository()
+    installer = Installer()
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True)
+    pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pm.upload(pkg, filename)
+    #install
+    pm.install("some_public==1.0.0","SOURCE", no_user=False)
+    assert check_if_installed(installer, "some_public==1.0.0")
+
+def test_install_recursive_internal_packages():
+    repo = Repository()
+    installer = Installer()
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True)
+    pkg1 = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename1 = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pkg2 = Package(name="other_package", version="1.0.0", type="SOURCE") #depends on test_package
+    filename2 = resource_filename(__name__, "data/other_package-1.0.0.tar.gz")
+    pm.upload(pkg1, filename1)
+    pm.upload(pkg2, filename2)
+    #install package with internal depenendency
+    pm.install("other_package==1.0.0","SOURCE", no_user=False)
+    assert check_if_installed(installer, "test-dep1")
+    assert check_if_installed(installer, "test-dep2")
+    assert check_if_installed(installer, "other_package-1.0.0")
+    assert check_if_installed(installer, "test_package-1.0.0")
+
+def test_without_deps():
+    repo = Repository()
+    installer = Installer()
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False, mirroring=True, install_deps=False)
+    pkg1 = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename1 = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pkg2 = Package(name="other_package", version="1.0.0", type="SOURCE") #depends on test_package
+    filename2 = resource_filename(__name__, "data/other_package-1.0.0.tar.gz")
+    pm.upload(pkg1, filename1)
+    pm.upload(pkg2, filename2)
+
+    pm.install("other_package==1.0.0","SOURCE", no_user=False)
+    assert check_if_installed(installer, "other_package-1.0.0")
+
+def test_uninstall():
+    repo = Repository()
+    installer = Installer()
+    pm = PackageManager(repo=repo, installer=installer, overwrite=False)
+    pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pm.upload(pkg, filename)
+    #install
+    pm.install("test_package==1.0.0","WHEEL", no_user=True)
+    pm.uninstall(pkg)
+    assert check_if_uninstalled(installer, pkg.name)
+
+def test_cloning_no_overwrite():
+    repo1 = Repository()
+    pm = PackageManager(repo=repo1, installer=Installer(), overwrite=False)
+    pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pm.upload(pkg, filename)
+    try:
+        tdir = tempfile.mkdtemp()
+        pm.clone(tdir)
+        assert os.listdir(tdir)
+        cloned_zip = os.path.join(tdir, os.listdir(tdir)[0])
+
+        #tryint to write back in the same repository if not in overwrite mode
+        #is not allowed
+        assert not pm.restore(cloned_zip, interactive=False)
+
+        dest_pm = PackageManager(repo=Repository(), installer=Installer())
+        assert not dest_pm.list_items()
+        dest_pm.restore(cloned_zip, interactive=False)
+        assert dest_pm.list_items() == pm.list_items()
+    finally:
+        shutil.rmtree(tdir)
+
+def test_cloning_overwrite():
+    repo1 = Repository()
+    pm = PackageManager(repo=repo1, installer=Installer(), overwrite=True)
+    pkg = Package(name="test_package", version="1.0.0", type="SOURCE")
+    filename = resource_filename(__name__, "data/test_package-1.0.0.zip")
+    pm.upload(pkg, filename)
+    try:
+        tdir = tempfile.mkdtemp()
+        pm.clone(tdir)
+        assert os.listdir(tdir)
+        cloned_zip = os.path.join(tdir, os.listdir(tdir)[0])
+
+        #tryint to write back in the same repository if not in overwrite mode
+        #is not allowed
+        assert pm.restore(cloned_zip, interactive=False)
+
+    finally:
+        shutil.rmtree(tdir)
