@@ -18,21 +18,34 @@ from glob import glob
 
 class PackageInstaller(object): # pragma: no cover
 
+    def __init__(self, is_python3):
+        self.__is_python3 = is_python3
+
     def install(self, resource, flags=[]):
-        subprocess.check_call(["python", "-m", "pip","install", resource] + flags)
+        if self.__is_python3:
+            subprocess.check_call(["python3", "-m", "pip","install", resource] + flags)
+        else:
+            subprocess.check_call(["python", "-m", "pip","install", resource] + flags)
 
     def uninstall(self, pkg):
-        subprocess.check_call(["python", "-m", "pip","uninstall", pkg.full_name.replace(":", "==")])
+        if self.__is_python3:
+            subprocess.check_call(["python3", "-m", "pip","uninstall", pkg.full_name.replace(":", "==")])
+        else:
+            subprocess.check_call(["python", "-m", "pip","uninstall", pkg.full_name.replace(":", "==")])
 
 class PackageManager(object):
 
-    def __init__(self, repo, console, installer=PackageInstaller(), overwrite=False, mirroring=True, install_deps=True):
+    def __init__(self, repo, console, installer=None, is_python3=False, overwrite=False, mirroring=True, install_deps=True):
         self.__repo = repo
         self.__console = console
-        self.__installer = installer
         self.__overwrite = overwrite
         self.__mirroring = mirroring
+        if installer:
+            self.__installer = installer
+        else:
+            self.__installer = PackageInstaller(is_python3 = is_python3)
         self.__install_deps = install_deps
+        self.__is_python3 = is_python3
         self.__prog = re.compile("((?:\w|-)*)(==|<=?|>=?)?((?:\d*\.?){0,3})?,?(==|<=?|>=?)?((?:\d*\.?){0,3})?")
         self.__repo_cache = []
         self.refresh_cache()

@@ -6,7 +6,7 @@ import os
 def handle_(config, data):
     with Console(verbose=config.get("verbose", False), exit_on_error=True) as c:
         repo = init_repository(c, config["repository"])
-        pkg_mgr = PackageManager(repo, console=c, overwrite=data["overwrite"])
+        pkg_mgr = PackageManager(repo, console=c, installer=None, is_python3 = config.get("python3", False), overwrite=data["overwrite"])
         pkg = PackageBuilder(os.path.abspath(data["file"])).build()
         c.info("uploading {}...".format(str(pkg)))
         pkg_mgr.upload(pkg, os.path.abspath(data["file"]))
