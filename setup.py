@@ -13,10 +13,10 @@ setup(
     packages=find_packages(),
     zip_safe=False,
     install_requires=[
-        "tqdm",
-        "colorama",
-        "six==1.11.0",
-        "google-cloud-storage==1.5.0",
+        "tqdm>=4.32.0",
+        "colorama>=0.4.1",
+        "six>=1.12.0",
+        "google-cloud-storage>=1.23.0",
     ],
     tests_require=[
         "pytest",
