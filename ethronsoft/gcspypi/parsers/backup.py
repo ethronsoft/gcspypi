@@ -1,17 +1,18 @@
-from ethronsoft.gcspypi.package.package_manager import PackageManager
+from ethronsoft.gcspypi.package.package_manager import PackageManager,PackageInstaller
 from ethronsoft.gcspypi.utilities.console import Console
 from ethronsoft.gcspypi.parsers.commons import init_repository
 
 def handle_pull(config, data):
     with Console(verbose=config.get("verbose", False), exit_on_error=True) as c:
         repo = init_repository(c, config["repository"])
-        pkg_mgr = PackageManager(repo, console=c)
+        is_python3 = config.get("python3", False)
+        pkg_mgr = PackageManager(repo, console=c, installer=None, is_python3=config.get("python3", False))
         pkg_mgr.clone(data["destination"])
 
 def handle_push(config, data):
     with Console(verbose=config.get("verbose", False), exit_on_error=True) as c:
         repo = init_repository(c, config["repository"])
-        pkg_mgr = PackageManager(repo, console=c)
+        pkg_mgr = PackageManager(repo, console=c, installer=None, is_python3=config.get("python3", False))
         pkg_mgr.restore(data["zipped_repo"])
 
 class BackupParser(object):

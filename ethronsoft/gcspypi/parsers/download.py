@@ -5,7 +5,7 @@ from ethronsoft.gcspypi.parsers.commons import init_repository
 def handle_(config, data):
     with Console(verbose=config.get("verbose", False), exit_on_error=True) as c:
         repo = init_repository(c, config["repository"])
-        pkg_mgr = PackageManager(repo, console=c)
+        pkg_mgr = PackageManager(repo, console=c, installer=None, is_python3 = config.get("python3", False))
         downloaded = pkg_mgr.download_by_name(data["obj"], data["dir"])
         c.info("Downloaded: {0}".format(downloaded))
 

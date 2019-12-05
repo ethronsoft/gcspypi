@@ -5,7 +5,12 @@ from ethronsoft.gcspypi.parsers.commons import init_repository
 def handle_(config, data):
     with Console(verbose=config.get("verbose", False), exit_on_error=True) as c:
         repo = init_repository(c, config["repository"])
-        pkg_mgr = PackageManager(repo, console=c, mirroring=data["mirror"], install_deps=not data["no_dependencies"])
+        pkg_mgr = PackageManager(repo,
+                                 console=c,
+                                 installer=None,
+                                 is_python3=config.get("python3", False),
+                                 mirroring=data["mirror"],
+                                 install_deps=not data["no_dependencies"])
         if data["requirements"]:
             c.info("installing from requirements file...")
             for syntax in open(data["requirements"], "r").readlines():
