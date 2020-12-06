@@ -11,6 +11,8 @@ def main():
                         help="Specifies GCS bucket name hosting the packages. If not provided, gcspypi will try to read it from ~/.gcspypirc")
     parser.add_argument("--verbose", "-v", action="store_true", default=False,
                         help="Verbose mode: exceptions stacktraces will be printed")
+    parser.add_argument("--python3", action="store_true", default=False,
+                        help="Python3 mode: run in python3 mode")
     subparsers = parser.add_subparsers(title="commands", help="use command --help for help", dest="command")
     
     #init colorama
@@ -37,7 +39,8 @@ def main():
                     [_, value] = reporc[0].split("=")
                     repository = value.strip()
     config = {
-        "repository": repository
+        "repository": repository,
+        "python3": args.get("python3")
     }
     handlers[args["command"]](config, args)
 

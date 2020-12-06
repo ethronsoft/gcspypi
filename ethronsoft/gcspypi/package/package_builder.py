@@ -1,6 +1,4 @@
-from ethronsoft.gcspypi.utilities.queries import get_package_type
-from ethronsoft.gcspypi.package.package import Package
-from ethronsoft.gcspypi.exceptions import InvalidState
+import re
 import json
 import os
 import shutil
@@ -9,6 +7,9 @@ import tempfile
 import zipfile
 
 
+from ethronsoft.gcspypi.utilities.queries import get_package_type
+from ethronsoft.gcspypi.package.package import Package
+from ethronsoft.gcspypi.exceptions import InvalidState
 
 
 class PackageBuilder(object):
@@ -78,10 +79,32 @@ class PackageBuilder(object):
                 for reqs in m["run_requires"]:
                     self.metadata["requirements"].update(reqs["requires"])
 
+        class BackupInfoCmd(object):
+            def __init__(self):
+                self.metadata = {}
+
+            def __call__(self, target):
+                m = {}
+                for line in target.readlines():
+                    if re.match(r'^[^\s]+:\s+\S+', line):
+                        if len(line.split(":")) > 1:
+                            k, v = line.split(":", 1)
+                            if k.upper().strip() not in m:
+                                m[k.upper().strip()] = []
+                            m[k.upper().strip()].append(v.strip())
+                self.metadata["name"] = "".join(m["name".upper()])
+                self.metadata["version"] = "".join(m["version".upper()])
+                self.metadata["requirements"] = set([])
+                for r in m.get("Requires-Dist".upper(), []):
+                    self.metadata["requirements"].add(r)
+
         cmd = InfoCmd()
         self.__seek_and_apply(zpfile, "metadata.json", cmd)
         if not cmd.metadata:
-            raise InvalidState("Could not find metadata.json")
+            cmd = BackupInfoCmd()
+            self.__seek_and_apply(zpfile, "METADATA", cmd)
+            if not cmd.metadata:
+                raise InvalidState("Could not find metadata.json")
         return cmd.metadata
 
     def __read_requirements(self, zpfile):
