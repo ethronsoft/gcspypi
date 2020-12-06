@@ -18,11 +18,6 @@ def test_src_wrong():
     with pytest.raises(InvalidState):
         PackageBuilder(pkg_path).build()
 
-def test_wheel_wrong():
-    pkg_path = resource_filename(__name__, "data/WRONG-test_package-1.0.0-py2-none-any.whl")
-    with pytest.raises(InvalidState):
-        PackageBuilder(pkg_path).build()
-
 def test_src_zip():
     pkg_path = resource_filename(__name__, "data/test_package-1.0.0.zip")
     pkg = PackageBuilder(pkg_path).build()
@@ -38,3 +33,14 @@ def test_wheel():
     assert pkg.version == "1.0.0"
     assert pkg.requirements == set(["test-dep1", "test-dep2"])
     assert pkg.type == "WHEEL"
+
+def test_wheel_py3():
+    pkg_path = resource_filename(__name__, "data/gcspypi-1.0.8+dev1-py3-none-any.whl")
+    pkg = PackageBuilder(pkg_path).build()
+    assert pkg.name == "gcspypi"
+    assert pkg.version == "1.0.8+dev1"
+    assert pkg.type == "WHEEL"
+    assert pkg.requirements == set(["colorama (>=0.4.1)",
+                                    "google-cloud-storage (>=1.23.0)",
+                                    "six (>=1.12.0)",
+                                    "tqdm (>=4.32.0)", ])
